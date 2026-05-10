@@ -404,18 +404,24 @@ async function _syncCloud(){
       }
     });
 
-    // Estoque
+    // Estoque - always load from Supabase
     _showL('Carregando estoque...');
     const rows=await _dbG('estoque');
     if(rows&&rows.length){
+      // Reset and reload from cloud
+      est={};prodFotos={};
       rows.forEach(r=>{
         est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};
         if(r.foto)prodFotos[r.cod]=r.foto;
       });
+      // Fill missing products with defaults
+      PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};});
     } else {
-      // First time: push defaults
+      // First time: push defaults to Supabase
+      est={};
       const def=PRODS_BASE.map(p=>{
         const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};
+        est[p.cod]={qtd:d.qtd,custoTotal:d.custoTotal};
         return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};
       });
       await _dbU('estoque',def);
@@ -435,7 +441,15 @@ async function _syncCloud(){
     }
 
     _hideL();
-    lastIdx=null;renderOrc();renderEst();renderHist();renderAnal();
+    lastIdx=null;
+    renderOrc();renderEst();
+    // If currently on hist/anal tab, refresh it
+    const activeTab=document.querySelector('.nb.on');
+    if(activeTab){
+      const tid=activeTab.id.replace('nb-','');
+      if(tid==='hist')renderHist();
+      if(tid==='anal')renderAnal();
+    }
   }catch(e){console.error('Sync error:',e);_hideL();}
 }
 
@@ -470,10 +484,12 @@ async function _loadEst(){
   renderEst();
   const rows=await _dbG('estoque');
   if(rows&&rows.length){
+    est={};prodFotos={};
     rows.forEach(r=>{
       est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};
       if(r.foto)prodFotos[r.cod]=r.foto;
     });
+    PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};});
     renderEst();
   }
 }
