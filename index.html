@@ -366,19 +366,30 @@ if(!est){est=JSON.parse(JSON.stringify(EST_DEFAULT));sv('byl_est',est);}
 PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]={qtd:0,custoTotal:0};});
 customProds.forEach(p=>{if(!est[p.cod])est[p.cod]={qtd:0,custoTotal:0};});
 let orcs=ld('byl_orc',[]);
-
 /* ════ SUPABASE ════ */
 const _SB='https://ouvxejdflebmsyzoohca.supabase.co';
 const _SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91dnhlamRmbGVibXN5em9vaGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDYzMTUsImV4cCI6MjA5MzkyMjMxNX0.RewBZ6f1TtFRGcJ6fGGsvnD-LredJDydPCF6d-U5FVg';
+const _H={'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
 async function _dbG(t,q){try{const r=await fetch(_SB+'/rest/v1/'+t+(q?'?'+q:''),{headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}});return r.ok?r.json():[]}catch(e){return[]}}
-async function _dbU(t,d){try{await fetch(_SB+'/rest/v1/'+t,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify(Array.isArray(d)?d:[d])})}catch(e){}}
+async function _dbU(t,d){try{await fetch(_SB+'/rest/v1/'+t,{method:'POST',headers:_H,body:JSON.stringify(Array.isArray(d)?d:[d])})}catch(e){}}
 async function _dbD(t,c,v){try{await fetch(_SB+'/rest/v1/'+t+'?'+c+'=eq.'+encodeURIComponent(v),{method:'DELETE',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}})}catch(e){}}
-function _showL(m){let e=document.getElementById('_ld');if(!e){e=document.createElement('div');e.id='_ld';e.style.cssText='position:fixed;inset:0;background:rgba(13,10,30,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';document.head.insertAdjacentHTML('beforeend','<style>@keyframes _r{to{transform:rotate(360deg)}}</style>');e.innerHTML='<div style="width:36px;height:36px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:_r .8s linear infinite"></div><p id="_lp" style="color:#c9a84c;font-size:14px;font-family:sans-serif">'+m+'</p>';document.body.appendChild(e)}else document.getElementById('_lp').textContent=m}
-function _hideL(){const e=document.getElementById('_ld');if(e)e.remove()}
+
+function _showL(m){
+  let e=document.getElementById('_ld');
+  if(!e){
+    e=document.createElement('div');e.id='_ld';
+    e.style.cssText='position:fixed;inset:0;background:rgba(13,10,30,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';
+    document.head.insertAdjacentHTML('beforeend','<style>@keyframes _r{to{transform:rotate(360deg)}}</style>');
+    e.innerHTML='<div style="width:36px;height:36px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:_r .8s linear infinite"></div><p id="_lp" style="color:#c9a84c;font-size:14px;font-family:sans-serif">'+m+'</p>';
+    document.body.appendChild(e);
+  }else document.getElementById('_lp').textContent=m;
+}
+function _hideL(){const e=document.getElementById('_ld');if(e)e.remove();}
 
 async function _syncCloud(){
-  _showL('Sincronizando...');
+  _showL('Carregando dados...');
   try{
+    // Custom products
     const cp=await _dbG('produtos_custom');
     (cp||[]).forEach(r=>{
       if(!customProds.find(p=>p.cod===r.cod)){
@@ -389,6 +400,9 @@ async function _syncCloud(){
         o.textContent=np.short;selEl.appendChild(o);
       }
     });
+
+    // Estoque
+    _showL('Carregando estoque...');
     const rows=await _dbG('estoque');
     if(rows&&rows.length){
       rows.forEach(r=>{
@@ -396,22 +410,38 @@ async function _syncCloud(){
         if(r.foto)prodFotos[r.cod]=r.foto;
       });
     } else {
-      await _dbU('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};}));
+      // First time: push defaults
+      const def=PRODS_BASE.map(p=>{
+        const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};
+        return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};
+      });
+      await _dbU('estoque',def);
     }
+
+    // Orçamentos
+    _showL('Carregando histórico...');
     const oo=await _dbG('orcamentos','order=created_at.desc');
     if(oo&&oo.length){
-      orcs=oo.map(r=>({id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
-        planos:typeof r.planos==='string'?JSON.parse(r.planos):r.planos,status:r.status,
-        vendaData:r.venda_data,planoEsc:r.plano_esc,entrada:r.entrada?+r.entrada:null,
-        parcelas:r.parcelas?(typeof r.parcelas==='string'?JSON.parse(r.parcelas):r.parcelas):null}));
+      orcs=oo.map(r=>{
+        let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
+        let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
+        return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
+          planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
+          entrada:r.entrada?+r.entrada:null,parcelas:pa};
+      });
     }
-    _hideL();lastIdx=null;renderOrc();renderEst();
-  }catch(e){console.error(e);_hideL();}
+
+    _hideL();
+    lastIdx=null;renderOrc();renderEst();renderHist();renderAnal();
+  }catch(e){console.error('Sync error:',e);_hideL();}
 }
+
 async function _saveEst(cod){
   const p=prods().find(x=>x.cod===cod);if(!p||!est[cod])return;
-  await _dbU('estoque',[{cod,nome:p.nome,short:p.short,usd:p.usd,qtd:est[cod].qtd,custo_total:est[cod].custoTotal,foto:prodFotos[cod]||null}]);
+  await _dbU('estoque',[{cod,nome:p.nome,short:p.short,usd:p.usd,
+    qtd:est[cod].qtd,custo_total:est[cod].custoTotal,foto:prodFotos[cod]||null}]);
 }
+
 let prodFotos=ld('byl_fotos',{});
 function svFotos(){sv('byl_fotos',prodFotos);}
 
@@ -648,7 +678,9 @@ function renderEst(){
 function restaurarEst(){
   if(!confirm('Restaurar estoque inicial (cotação R$ 5,37)?'))return;
   est=JSON.parse(JSON.stringify(EST_DEFAULT));
-  _dbU('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:prodFotos[p.cod]||null};})); renderEst();
+  _dbU('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};
+    return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:prodFotos[p.cod]||null};}));
+  renderEst();
 }
 function resetEst(){
   if(!confirm('Zerar todo o estoque?'))return;
@@ -681,7 +713,7 @@ function salvarNP(){
   document.getElementById('np-short').value='';
   document.getElementById('np-cod').value='';
   document.getElementById('np-usd').value='';
-  toggleNP(); renderEst(); alert('Produto cadastrado!');
+  _dbU('produtos_custom',[{cod,nome,short,usd}]); _saveEst(cod); toggleNP(); renderEst(); alert('Produto cadastrado!');
 }
 
 /* ════ HISTÓRICO ════ */
@@ -730,7 +762,16 @@ function confirmarVenda(){
   const dv=document.getElementById('mv-data').value||td();
   o.status='vendido'; o.vendaData=dv; o.planoEsc=pl; o.entrada=s.entVal;
   o.parcelas=genParcs(dv,dia,s.n,s.parcVal);
-  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,planos:o.planos,status:'vendido',venda_data:dv,plano_esc:pl,entrada:s.entVal,parcelas:o.parcelas}]); closeM('m-venda'); renderHist();
+  // Descontar do estoque automaticamente
+  const _cod=o.produto.cod;
+  if(est[_cod]&&est[_cod].qtd>0){
+    const _u=cm(_cod);
+    est[_cod].qtd--; est[_cod].custoTotal=Math.max(0,est[_cod].custoTotal-_u);
+    _saveEst(_cod);
+  }
+  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,
+    planos:o.planos,status:'vendido',venda_data:dv,plano_esc:pl,entrada:s.entVal,parcelas:o.parcelas}]);
+  closeM('m-venda'); renderHist(); renderEst();
 }
 
 function apagarOrc(id){
@@ -741,7 +782,10 @@ function apagarOrc(id){
 function toggleParc(id,i){
   const o=orcs.find(x=>x.id===id); if(!o||!o.parcelas)return;
   o.parcelas[i].pago=!o.parcelas[i].pago;
-  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,planos:o.planos,status:o.status,venda_data:o.vendaData,plano_esc:o.planoEsc,entrada:o.entrada,parcelas:o.parcelas}]); renderHist();
+  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,
+    planos:o.planos,status:o.status,venda_data:o.vendaData,plano_esc:o.planoEsc,
+    entrada:o.entrada,parcelas:o.parcelas}]);
+  renderHist();
 }
 
 function renderHist(){
