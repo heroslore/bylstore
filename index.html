@@ -168,15 +168,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 <body>
 
 <div class="hdr">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <div class="hdr-brand">BYL STORE</div>
-      <div class="hdr-sub">Gestão de Vendas · Importados</div>
-    </div>
-    <button onclick="_syncCloud()" style="background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:var(--rs);padding:6px 12px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;margin-top:4px;position:relative;z-index:1" title="Sincronizar dados">
-      ↻ Sync
-    </button>
-  </div>
+  <div class="hdr-brand">BYL STORE</div>
+  <div class="hdr-sub">Gestão de Vendas · Importados</div>
 </div>
 
 <!-- TAB ORÇAMENTO -->
@@ -328,6 +321,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
   </button>
   <button class="btn ghost" onclick="closeM('m-ig')">Fechar</button>
 </div></div>
+
+<!-- SYNC BUTTON -->
+<button onclick="_syncCloud()" style="position:fixed;bottom:72px;right:16px;z-index:99;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#8a6820,#c9a84c);border:none;color:#0d0a1e;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(201,168,76,.4)" title="Sincronizar">↻</button>
 
 <!-- BOTTOM NAV -->
 <nav class="bnav">
@@ -483,18 +479,23 @@ async function _loadEst(){
 }
 
 async function _loadHist(){
-  renderHist(); // show current state
-  const oo=await _dbG('orcamentos','order=created_at.desc');
-  if(oo&&oo.length){
-    orcs=oo.map(r=>{
-      let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
-      let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
-      return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
-        planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
-        entrada:r.entrada?+r.entrada:null,parcelas:pa};
-    });
-    renderHist();
-  }
+  renderHist();
+  try{
+    const oo=await _dbG('orcamentos','order=created_at.desc');
+    console.log('Orçamentos do Supabase:',oo);
+    if(oo&&oo.length){
+      orcs=oo.map(r=>{
+        let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
+        let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
+        return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
+          planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
+          entrada:r.entrada?+r.entrada:null,parcelas:pa};
+      });
+      renderHist();
+    } else {
+      console.log('Nenhum orçamento retornado. Resposta:', oo);
+    }
+  }catch(e){console.error('Erro ao carregar histórico:',e);}
 }
 
 async function _loadAnal(){
