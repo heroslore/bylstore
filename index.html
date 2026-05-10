@@ -322,10 +322,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
   <button class="btn ghost" onclick="closeM('m-ig')">Fechar</button>
 </div></div>
 
-<!-- SYNC BUTTON -->
-<button onclick="_syncCloud()" style="position:fixed;bottom:72px;right:16px;z-index:99;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#8a6820,#c9a84c);border:none;color:#0d0a1e;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(201,168,76,.4)" title="Sincronizar">↻</button>
-<button onclick="_debugSync()" style="position:fixed;bottom:122px;right:16px;z-index:99;width:44px;height:44px;border-radius:50%;background:#1a1035;border:1px solid rgba(201,168,76,.4);color:#c9a84c;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Debug">🔍</button>
-
+<button id="btn-sync" onclick="syncAll()" style="position:fixed;bottom:72px;right:16px;z-index:99;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#8a6820,#c9a84c);border:none;color:#0d0a1e;font-size:20px;cursor:pointer;box-shadow:0 2px 12px rgba(201,168,76,.4);display:flex;align-items:center;justify-content:center">&#x21BB;</button>
 <!-- BOTTOM NAV -->
 <nav class="bnav">
   <button class="nb on" id="nb-orc" onclick="goTab('orc')">
@@ -370,96 +367,6 @@ if(!est){est=JSON.parse(JSON.stringify(EST_DEFAULT));sv('byl_est',est);}
 PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]={qtd:0,custoTotal:0};});
 customProds.forEach(p=>{if(!est[p.cod])est[p.cod]={qtd:0,custoTotal:0};});
 let orcs=ld('byl_orc',[]);
-/* ════ SUPABASE ════ */
-const _SB='https://ouvxejdflebmsyzoohca.supabase.co';
-const _SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91dnhlamRmbGVibXN5em9vaGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDYzMTUsImV4cCI6MjA5MzkyMjMxNX0.RewBZ6f1TtFRGcJ6fGGsvnD-LredJDydPCF6d-U5FVg';
-const _H={'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'};
-async function _dbG(t,q){try{const r=await fetch(_SB+'/rest/v1/'+t+(q?'?'+q:''),{headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}});return r.ok?r.json():[]}catch(e){return[]}}
-async function _dbU(t,d){try{await fetch(_SB+'/rest/v1/'+t,{method:'POST',headers:_H,body:JSON.stringify(Array.isArray(d)?d:[d])})}catch(e){}}
-async function _dbD(t,c,v){try{await fetch(_SB+'/rest/v1/'+t+'?'+c+'=eq.'+encodeURIComponent(v),{method:'DELETE',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}})}catch(e){}}
-
-function _showL(m){
-  let e=document.getElementById('_ld');
-  if(!e){
-    e=document.createElement('div');e.id='_ld';
-    e.style.cssText='position:fixed;inset:0;background:rgba(13,10,30,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';
-    document.head.insertAdjacentHTML('beforeend','<style>@keyframes _r{to{transform:rotate(360deg)}}</style>');
-    e.innerHTML='<div style="width:36px;height:36px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:_r .8s linear infinite"></div><p id="_lp" style="color:#c9a84c;font-size:14px;font-family:sans-serif">'+m+'</p>';
-    document.body.appendChild(e);
-  }else document.getElementById('_lp').textContent=m;
-}
-function _hideL(){const e=document.getElementById('_ld');if(e)e.remove();}
-
-async function _syncCloud(){
-  _showL('Carregando dados...');
-  try{
-    // Custom products
-    const cp=await _dbG('produtos_custom');
-    (cp||[]).forEach(r=>{
-      if(!customProds.find(p=>p.cod===r.cod)){
-        const np={cod:r.cod,nome:r.nome,short:r.short,usd:parseFloat(r.usd)};
-        customProds.push(np);
-        const o=document.createElement('option');
-        o.value=PRODS_BASE.length+customProds.length-1;
-        o.textContent=np.short;selEl.appendChild(o);
-      }
-    });
-
-    // Estoque - always load from Supabase
-    _showL('Carregando estoque...');
-    const rows=await _dbG('estoque');
-    if(rows&&rows.length){
-      // Reset and reload from cloud
-      est={};prodFotos={};
-      rows.forEach(r=>{
-        est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};
-        if(r.foto)prodFotos[r.cod]=r.foto;
-      });
-      // Fill missing products with defaults
-      PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};});
-    } else {
-      // First time: push defaults to Supabase
-      est={};
-      const def=PRODS_BASE.map(p=>{
-        const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};
-        est[p.cod]={qtd:d.qtd,custoTotal:d.custoTotal};
-        return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};
-      });
-      await _dbU('estoque',def);
-    }
-
-    // Orçamentos
-    _showL('Carregando histórico...');
-    const oo=await _dbG('orcamentos','order=created_at.desc');
-    if(oo&&oo.length){
-      orcs=oo.map(r=>{
-        let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
-        let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
-        return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
-          planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
-          entrada:r.entrada?+r.entrada:null,parcelas:pa};
-      });
-    }
-
-    _hideL();
-    lastIdx=null;
-    renderOrc();renderEst();
-    // If currently on hist/anal tab, refresh it
-    const activeTab=document.querySelector('.nb.on');
-    if(activeTab){
-      const tid=activeTab.id.replace('nb-','');
-      if(tid==='hist')renderHist();
-      if(tid==='anal')renderAnal();
-    }
-  }catch(e){console.error('Sync error:',e);_hideL();}
-}
-
-async function _saveEst(cod){
-  const p=prods().find(x=>x.cod===cod);if(!p||!est[cod])return;
-  await _dbU('estoque',[{cod,nome:p.nome,short:p.short,usd:p.usd,
-    qtd:est[cod].qtd,custo_total:est[cod].custoTotal,foto:prodFotos[cod]||null}]);
-}
-
 let prodFotos=ld('byl_fotos',{});
 function svFotos(){sv('byl_fotos',prodFotos);}
 
@@ -476,48 +383,9 @@ function goTab(n){
     document.getElementById('tab-'+t).classList.toggle('on',t===n);
     document.getElementById('nb-'+t).classList.toggle('on',t===n);
   });
-  if(n==='est')_loadEst();
-  if(n==='hist')_loadHist();
-  if(n==='anal')_loadAnal();
-}
-
-async function _loadEst(){
-  renderEst();
-  const rows=await _dbG('estoque');
-  if(rows&&rows.length){
-    est={};prodFotos={};
-    rows.forEach(r=>{
-      est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};
-      if(r.foto)prodFotos[r.cod]=r.foto;
-    });
-    PRODS_BASE.forEach(p=>{if(!est[p.cod])est[p.cod]=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};});
-    renderEst();
-  }
-}
-
-async function _loadHist(){
-  renderHist();
-  try{
-    const oo=await _dbG('orcamentos','order=created_at.desc');
-    console.log('Orçamentos do Supabase:',oo);
-    if(oo&&oo.length){
-      orcs=oo.map(r=>{
-        let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
-        let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
-        return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
-          planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
-          entrada:r.entrada?+r.entrada:null,parcelas:pa};
-      });
-      renderHist();
-    } else {
-      console.log('Nenhum orçamento retornado. Resposta:', oo);
-    }
-  }catch(e){console.error('Erro ao carregar histórico:',e);}
-}
-
-async function _loadAnal(){
-  await _loadHist();
-  renderAnal();
+  if(n==='est')renderEst();
+  if(n==='hist')renderHist();
+  if(n==='anal')renderAnal();
 }
 
 /* ════ ORÇAMENTO ════ */
@@ -679,14 +547,14 @@ function confirmarEnt(){
   if(q<=0||c<=0){alert('Preencha quantidade e cotação.');return;}
   est[mEstCod].custoTotal+=p.usd*c*q;
   est[mEstCod].qtd+=q;
-  _saveEst(mEstCod); closeM('m-est'); renderEst(); lastIdx=null; renderOrc();
+  saveEst(mEstCod); closeM('m-est'); renderEst(); lastIdx=null; renderOrc();
 }
 
 function dimEst(cod){
   if(!est[cod]||est[cod].qtd<=0)return;
   const u=cm(cod);
   est[cod].qtd--; est[cod].custoTotal=Math.max(0,est[cod].custoTotal-u);
-  _saveEst(cod); renderEst(); lastIdx=null; renderOrc();
+  saveEst(cod); renderEst(); lastIdx=null; renderOrc();
 }
 
 function renderEst(){
@@ -735,9 +603,7 @@ function renderEst(){
 function restaurarEst(){
   if(!confirm('Restaurar estoque inicial (cotação R$ 5,37)?'))return;
   est=JSON.parse(JSON.stringify(EST_DEFAULT));
-  _dbU('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};
-    return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:prodFotos[p.cod]||null};}));
-  renderEst();
+  sv('byl_est',est); renderEst();
 }
 function resetEst(){
   if(!confirm('Zerar todo o estoque?'))return;
@@ -770,7 +636,7 @@ function salvarNP(){
   document.getElementById('np-short').value='';
   document.getElementById('np-cod').value='';
   document.getElementById('np-usd').value='';
-  _dbU('produtos_custom',[{cod,nome,short,usd}]); _saveEst(cod); toggleNP(); renderEst(); alert('Produto cadastrado!');
+  sbUpsert('produtos_custom',[{cod,nome,short,usd}]);saveEst(cod);toggleNP();renderEst();alert('Produto cadastrado!');
 }
 
 /* ════ HISTÓRICO ════ */
@@ -819,30 +685,19 @@ function confirmarVenda(){
   const dv=document.getElementById('mv-data').value||td();
   o.status='vendido'; o.vendaData=dv; o.planoEsc=pl; o.entrada=s.entVal;
   o.parcelas=genParcs(dv,dia,s.n,s.parcVal);
-  // Descontar do estoque automaticamente
-  const _cod=o.produto.cod;
-  if(est[_cod]&&est[_cod].qtd>0){
-    const _u=cm(_cod);
-    est[_cod].qtd--; est[_cod].custoTotal=Math.max(0,est[_cod].custoTotal-_u);
-    _saveEst(_cod);
-  }
-  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,
-    planos:o.planos,status:'vendido',venda_data:dv,plano_esc:pl,entrada:s.entVal,parcelas:o.parcelas}]);
+  saveOrc(o);
+  if(est[o.produto.cod]&&est[o.produto.cod].qtd>0){const uc=cm(o.produto.cod);est[o.produto.cod].qtd--;est[o.produto.cod].custoTotal=Math.max(0,est[o.produto.cod].custoTotal-uc);saveEst(o.produto.cod);}
   closeM('m-venda'); renderHist(); renderEst();
 }
 
 function apagarOrc(id){
   if(!confirm('Apagar este orçamento?'))return;
-  orcs=orcs.filter(x=>x.id!==id); _dbD('orcamentos','id',id); renderHist();
+  orcs=orcs.filter(x=>x.id!==id); sbDel('orcamentos','id',id); renderHist();
 }
 
 function toggleParc(id,i){
   const o=orcs.find(x=>x.id===id); if(!o||!o.parcelas)return;
-  o.parcelas[i].pago=!o.parcelas[i].pago;
-  _dbU('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,
-    planos:o.planos,status:o.status,venda_data:o.vendaData,plano_esc:o.planoEsc,
-    entrada:o.entrada,parcelas:o.parcelas}]);
-  renderHist();
+  o.parcelas[i].pago=!o.parcelas[i].pago; saveOrc(o); renderHist();
 }
 
 function renderHist(){
@@ -1122,7 +977,7 @@ function carregarFotoProd(input){
       else{cv.height=MAX;cv.width=Math.round(MAX*rat);}
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       prodFotos[fotoCod]=cv.toDataURL('image/jpeg',0.75);
-      _saveEst(fotoCod); fotoCod=null; input.value=''; renderEst();
+      saveEst(fotoCod); fotoCod=null; input.value=''; renderEst();
     };
     img.src=ev.target.result;
   };
@@ -1134,6 +989,36 @@ function closeM(id){document.getElementById(id).classList.add('hid');}
 ['m-est','m-venda','m-ig'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeM(id);});
 });
+
+/* SUPABASE */
+const SB_URL='https://ouvxejdflebmsyzoohca.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91dnhlamRmbGVibXN5em9vaGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDYzMTUsImV4cCI6MjA5MzkyMjMxNX0.RewBZ6f1TtFRGcJ6fGGsvnD-LredJDydPCF6d-U5FVg';
+async function sbGet(t,q){try{const r=await fetch(SB_URL+'/rest/v1/'+t+(q?'?'+q:''),{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(!r.ok){console.error('GET',r.status);return[];}return await r.json();}catch(e){console.error('GET err',e);return[];}}
+async function sbUpsert(t,d){try{const r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify(Array.isArray(d)?d:[d])});if(!r.ok)console.error('UPSERT',r.status,await r.text());}catch(e){console.error('UPSERT err',e);}}
+async function sbDel(t,c,v){try{await fetch(SB_URL+'/rest/v1/'+t+'?'+c+'=eq.'+encodeURIComponent(v),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});}catch(e){console.error('DEL err',e);}}
+function showL(m){let e=document.getElementById('__ld');if(!e){e=document.createElement('div');e.id='__ld';e.style.cssText='position:fixed;inset:0;background:rgba(13,10,30,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';document.head.insertAdjacentHTML('beforeend','<style>@keyframes __s{to{transform:rotate(360deg)}}</style>');e.innerHTML='<div style="width:36px;height:36px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:__s .8s linear infinite"></div><p id="__lm" style="color:#c9a84c;font-size:14px;font-family:sans-serif">'+m+'</p>';document.body.appendChild(e);}else document.getElementById('__lm').textContent=m;}
+function hideL(){const e=document.getElementById('__ld');if(e)e.remove();}
+async function syncAll(){
+  const btn=document.getElementById('btn-sync');
+  showL('Sincronizando...');
+  try{
+    const cp=await sbGet('produtos_custom');
+    (cp||[]).forEach(r=>{if(!customProds.find(p=>p.cod===r.cod)){const np={cod:r.cod,nome:r.nome,short:r.short,usd:parseFloat(r.usd)};customProds.push(np);const o=document.createElement('option');o.value=PRODS_BASE.length+customProds.length-1;o.textContent=np.short;selEl.appendChild(o);}});
+    showL('Carregando estoque...');
+    const er=await sbGet('estoque');
+    if(er&&er.length){er.forEach(r=>{est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};if(r.foto)prodFotos[r.cod]=r.foto;});}
+    else{await sbUpsert('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};}));}
+    showL('Carregando historico...');
+    const or=await sbGet('orcamentos','order=created_at.desc');
+    if(or&&or.length){orcs=or.map(r=>{let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={};}let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null;}return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,entrada:r.entrada?+r.entrada:null,parcelas:pa};});}
+    else orcs=[];
+    hideL();lastIdx=null;renderOrc();renderEst();renderHist();renderAnal();
+    console.log('Sync OK orcs:'+orcs.length);
+  }catch(e){console.error('syncAll:',e);hideL();}
+}
+async function saveEst(cod){const p=prods().find(x=>x.cod===cod);if(!p||!est[cod])return;await sbUpsert('estoque',[{cod,nome:p.nome,short:p.short,usd:p.usd,qtd:est[cod].qtd,custo_total:est[cod].custoTotal,foto:prodFotos[cod]||null}]);}
+async function saveOrc(o){await sbUpsert('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,planos:o.planos,status:o.status,venda_data:o.vendaData||null,plano_esc:o.planoEsc||null,entrada:o.entrada||null,parcelas:o.parcelas||null}]);}
+document.addEventListener('DOMContentLoaded',syncAll);
 </script>
 <input type="file" id="prod-foto-input" accept="image/*" style="display:none" onchange="carregarFotoProd(this)">
 </body>
