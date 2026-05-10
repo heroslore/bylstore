@@ -459,8 +459,28 @@ function goTab(n){
     document.getElementById('nb-'+t).classList.toggle('on',t===n);
   });
   if(n==='est')renderEst();
-  if(n==='hist')renderHist();
-  if(n==='anal')renderAnal();
+  if(n==='hist')_loadHist();
+  if(n==='anal')_loadAnal();
+}
+
+async function _loadHist(){
+  renderHist(); // show current state
+  const oo=await _dbG('orcamentos','order=created_at.desc');
+  if(oo&&oo.length){
+    orcs=oo.map(r=>{
+      let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={}}
+      let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null}
+      return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,
+        planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,
+        entrada:r.entrada?+r.entrada:null,parcelas:pa};
+    });
+    renderHist();
+  }
+}
+
+async function _loadAnal(){
+  await _loadHist();
+  renderAnal();
 }
 
 /* ════ ORÇAMENTO ════ */
