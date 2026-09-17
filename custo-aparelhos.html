@@ -2,49 +2,62 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Custo de Aparelhos — Leilão + Frete</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gestão de Aparelhos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
 <style>
   :root {
     --paper: #f3f2ec;
-    --paper-line: #dedad0;
+    --paper-2: #ebe9e1;
+    --line: #dedad0;
     --ink: #202a24;
     --ink-soft: #5c6a5f;
+    --ink-faint: #8d978f;
     --card: #fbfaf6;
     --amber: #b9822f;
     --amber-soft: #f0e2c8;
     --teal: #2f6f62;
     --teal-soft: #dceae5;
     --danger: #a3432f;
+    --danger-soft: #f2ddd7;
     --focus: #2f6f62;
+    --shadow: 0 1px 2px rgba(32, 42, 36, 0.06);
   }
-  :root:not([data-theme="light"]) {
-    @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
       --paper: #171b18;
-      --paper-line: #2c332d;
+      --paper-2: #121513;
+      --line: #2c332d;
       --ink: #eae7de;
       --ink-soft: #9aa79c;
+      --ink-faint: #6c776e;
       --card: #1e2420;
       --amber: #d7a355;
       --amber-soft: #33291a;
       --teal: #6fb5a3;
       --teal-soft: #1c2e29;
       --danger: #d97b64;
+      --danger-soft: #3a221c;
       --focus: #6fb5a3;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
   }
   :root[data-theme="dark"] {
     --paper: #171b18;
-    --paper-line: #2c332d;
+    --paper-2: #121513;
+    --line: #2c332d;
     --ink: #eae7de;
     --ink-soft: #9aa79c;
+    --ink-faint: #6c776e;
     --card: #1e2420;
     --amber: #d7a355;
     --amber-soft: #33291a;
     --teal: #6fb5a3;
     --teal-soft: #1c2e29;
     --danger: #d97b64;
+    --danger-soft: #3a221c;
     --focus: #6fb5a3;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   * { box-sizing: border-box; }
@@ -52,139 +65,223 @@
     margin: 0;
     background: var(--paper);
     color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    font-size: 15px;
   }
-  body { padding: 28px 16px 64px; }
+  body { padding-block: 0 72px; }
+  [hidden] { display: none !important; }
+  button { font: inherit; }
+  input, select, textarea { font: inherit; color: var(--ink); }
 
-  .wrap { max-width: 980px; margin: 0 auto; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; }
 
-  header.page {
-    margin-bottom: 22px;
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow);
   }
-  header.page h1 {
-    font-size: 1.5rem;
-    font-weight: 650;
+  .topbar-inner {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding-block: 10px;
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 1.02rem;
     letter-spacing: -0.01em;
-    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
   }
-  header.page p {
-    margin: 0;
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--amber);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-left: auto;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    border: none;
+    background: transparent;
     color: var(--ink-soft);
-    font-size: 0.92rem;
-    max-width: 62ch;
-    line-height: 1.5;
+    padding: 8px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab:hover { background: var(--paper); }
+  .tab.active { background: var(--amber-soft); color: var(--ink); font-weight: 600; }
+  .tab:focus-visible { outline: 2px solid var(--focus); }
+  .tab .pill {
+    font-size: 0.72rem;
+    background: var(--paper-2);
+    color: var(--ink-soft);
+    border-radius: 99px;
+    padding: 1px 7px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tab.active .pill { background: var(--card); }
+  @media (max-width: 640px) {
+    .topbar-inner { gap: 8px; }
+    .tabs { margin-left: 0; width: 100%; }
+    .tab { padding: 7px 10px; font-size: 0.9rem; }
   }
 
+  main { padding-top: 22px; }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
+
+  .page-intro {
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0 0 18px;
+    max-width: 66ch;
+  }
+
+  /* ---------- cards ---------- */
   .card {
     background: var(--card);
-    border: 1px solid var(--paper-line);
+    border: 1px solid var(--line);
     border-radius: 10px;
     padding: 18px 20px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
-
+  @media (max-width: 640px) { .card { padding: 14px 14px; } }
   .card h2 {
-    font-size: 0.78rem;
-    font-weight: 650;
-    letter-spacing: 0.02em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     color: var(--ink-soft);
     margin: 0 0 14px;
     text-transform: uppercase;
   }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .card-head h2 { margin: 0; }
+  .badge {
+    font-size: 0.74rem;
+    padding: 3px 9px;
+    border-radius: 99px;
+    background: var(--amber-soft);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .badge.teal { background: var(--teal-soft); }
+  .badge.danger { background: var(--danger-soft); }
+  .badge.neutral { background: var(--paper-2); color: var(--ink-soft); }
 
-  .settings-grid {
+  /* ---------- fields ---------- */
+  .grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 14px 18px;
   }
-
+  .grid.two { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .field label {
     display: block;
     font-size: 0.78rem;
     color: var(--ink-soft);
     margin-bottom: 5px;
   }
-  .field .input-group {
+  .input-group {
     display: flex;
     align-items: center;
-    border: 1px solid var(--paper-line);
+    border: 1px solid var(--line);
     border-radius: 7px;
     background: var(--paper);
     overflow: hidden;
   }
-  .field .input-group span {
+  .input-group span {
     padding: 0 9px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--ink-soft);
-    border-right: 1px solid var(--paper-line);
-    background: var(--paper-line);
+    border-right: 1px solid var(--line);
+    background: var(--paper-2);
     align-self: stretch;
-    display: flex;
-    align-items: center;
+    display: flex; align-items: center;
   }
-  .field .input-group span.suffix {
-    border-right: none;
-    border-left: 1px solid var(--paper-line);
-  }
-  .field input[type="number"] {
+  .input-group span.suffix { border-right: none; border-left: 1px solid var(--line); }
+  .input-group input, .field > input, .field > select, .field > textarea {
     width: 100%;
     border: none;
     background: transparent;
     padding: 9px 10px;
     font-size: 0.95rem;
-    color: var(--ink);
     font-variant-numeric: tabular-nums;
-    -moz-appearance: textfield;
   }
-  .field input[type="number"]::-webkit-outer-spin-button,
-  .field input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  .field > input, .field > select, .field > textarea {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
   }
-  .field input:focus-visible {
+  .field > textarea { min-height: 60px; resize: vertical; }
+  input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: -2px;
   }
 
   .toggle-row {
-    display: flex;
-    align-items: center;
-    gap: 9px;
+    display: flex; align-items: center; gap: 9px;
     margin-top: 14px;
     font-size: 0.85rem;
     color: var(--ink-soft);
   }
-  .toggle-row input { accent-color: var(--teal); width: 15px; height: 15px; }
+  .toggle-row input { accent-color: var(--teal); width: 15px; height: 15px; margin: 0; }
   .toggle-row label { cursor: pointer; }
 
-  .table-scroll { overflow-x: auto; }
+  /* ---------- tables ---------- */
+  .table-scroll { overflow-x: auto; margin-inline: -4px; padding-inline: 4px; }
   table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1180px;
     font-size: 0.88rem;
   }
+  table.wide { min-width: 900px; }
   thead th {
     text-align: left;
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ink-soft);
     font-weight: 600;
     padding: 0 8px 8px;
-    border-bottom: 1px solid var(--paper-line);
+    border-bottom: 1px solid var(--line);
     white-space: nowrap;
   }
-  thead th.num, tbody td.num { text-align: right; }
+  th.num, td.num { text-align: right; }
   tbody td {
-    padding: 7px 8px;
-    border-bottom: 1px solid var(--paper-line);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
     vertical-align: middle;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   tbody tr:last-child td { border-bottom: none; }
-  tbody input[type="text"], tbody input[type="number"] {
+  tbody input[type="text"], tbody input[type="number"], tbody select {
     width: 100%;
     min-width: 64px;
     border: 1px solid transparent;
@@ -192,467 +289,1288 @@
     border-radius: 5px;
     padding: 5px 6px;
     font-size: 0.88rem;
-    color: var(--ink);
     font-variant-numeric: tabular-nums;
   }
-  tbody input:hover { border-color: var(--paper-line); }
-  tbody input:focus-visible {
+  tbody select { min-width: 220px; max-width: 360px; }
+  tbody input:hover, tbody select:hover { border-color: var(--line); }
+  tbody input:focus-visible, tbody select:focus-visible {
     outline: none;
     border-color: var(--focus);
     background: var(--paper);
   }
-  tbody input[type="text"] { min-width: 130px; }
+  tbody input[type="text"] { min-width: 210px; }
+  tbody td.num input { text-align: right; }
   .computed { color: var(--ink-soft); }
-  .computed.total { color: var(--amber); font-weight: 650; }
-  .lucro-pos { color: var(--teal); font-weight: 600; }
-  .lucro-neg { color: var(--danger); font-weight: 600; }
+  .computed.strong { color: var(--ink); font-weight: 600; }
+  .computed.amber { color: var(--amber); font-weight: 650; }
+  .pos { color: var(--teal); font-weight: 600; }
+  .neg { color: var(--danger); font-weight: 600; }
+  .muted { color: var(--ink-faint); }
 
-  .row-remove {
+  tfoot td {
+    padding: 10px 8px 4px;
+    font-weight: 650;
+    border-top: 2px solid var(--line);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  tfoot td.amber { color: var(--amber); }
+
+  .icon-btn {
     border: none;
     background: none;
-    color: var(--ink-soft);
+    color: var(--ink-faint);
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
     padding: 4px 6px;
     border-radius: 5px;
   }
-  .row-remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
-  .row-remove:focus-visible { outline: 2px solid var(--focus); }
+  .icon-btn:hover { color: var(--danger); background: var(--danger-soft); }
+  .icon-btn:focus-visible { outline: 2px solid var(--focus); }
 
-  tfoot td {
-    padding: 10px 8px 4px;
-    font-weight: 650;
-    border-top: 2px solid var(--paper-line);
-    font-variant-numeric: tabular-nums;
-  }
-  tfoot td.num.total { color: var(--amber); font-size: 0.98rem; }
-
-  .add-row-btn {
-    margin-top: 12px;
-    border: 1px dashed var(--paper-line);
-    background: transparent;
-    color: var(--ink-soft);
+  /* ---------- buttons ---------- */
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
     padding: 9px 14px;
     border-radius: 7px;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
+    font-weight: 500;
     cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--ink-faint); }
+  .btn:focus-visible { outline: 2px solid var(--focus); }
+  .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.amber { background: var(--amber); border-color: var(--amber); color: #fff; font-weight: 600; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--danger); }
+  .btn.danger:hover { background: var(--danger-soft); border-color: var(--danger); }
+  .btn.small { padding: 6px 10px; font-size: 0.8rem; }
+  .btn.dashed {
     width: 100%;
+    justify-content: center;
+    border-style: dashed;
+    background: transparent;
+    color: var(--ink-soft);
+    margin-top: 12px;
   }
-  .add-row-btn:hover { border-color: var(--teal); color: var(--teal); }
-  .add-row-btn:focus-visible { outline: 2px solid var(--focus); }
-
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 18px;
+  .btn.dashed:hover { border-color: var(--teal); color: var(--teal); }
+  .actions {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     margin-top: 16px;
-    font-size: 0.78rem;
-    color: var(--ink-soft);
   }
-  .legend b { color: var(--ink); font-weight: 600; }
+  .actions .spacer { flex: 1; }
 
-  .summary-strip {
+  /* ---------- summary ---------- */
+  .summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 14px;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
   }
-  .summary-item .label {
-    font-size: 0.74rem;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    margin-bottom: 4px;
-  }
-  .summary-item .value {
-    font-size: 1.28rem;
-    font-weight: 650;
+  @media (max-width: 720px) { .summary { grid-template-columns: 1fr; } }
+  .breakdown { display: grid; gap: 0; align-content: start; }
+  .breakdown div {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 0.9rem;
     font-variant-numeric: tabular-nums;
   }
-  .summary-item.highlight .value { color: var(--amber); }
-  .summary-item .sub { font-size: 0.76rem; color: var(--ink-soft); margin-top: 2px; }
-
-  footer.note {
-    font-size: 0.78rem;
+  .breakdown div:last-child { border-bottom: none; }
+  .breakdown span:first-child { color: var(--ink-soft); }
+  .breakdown div.em span { font-weight: 600; color: var(--ink); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-content: start; }
+  .tile {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 12px 14px;
+  }
+  .tile .label {
+    font-size: 0.72rem;
     color: var(--ink-soft);
-    line-height: 1.55;
-    max-width: 68ch;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .tile .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+  .tile .sub { font-size: 0.76rem; color: var(--ink-soft); margin-top: 3px; }
+  .tile.amber .value { color: var(--amber); }
+  .tile.teal .value { color: var(--teal); }
+  .tile.danger .value { color: var(--danger); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+  /* ---------- lists (compras / vendas / clientes) ---------- */
+  .item {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--card);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .item-head {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+  .item-head:hover { background: var(--paper); }
+  .item-title { font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .item-sub { font-size: 0.8rem; color: var(--ink-soft); margin-top: 2px; }
+  .item-main { flex: 1; min-width: 180px; }
+  .item-figs {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .fig { text-align: right; min-width: 80px; }
+  .fig .l { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+  .fig .v { font-weight: 600; font-size: 0.95rem; }
+  .fig .v.amber { color: var(--amber); }
+  .chev { color: var(--ink-faint); transition: transform 0.15s; font-size: 0.8rem; }
+  .item.open .chev { transform: rotate(90deg); }
+  .item-body { display: none; border-top: 1px solid var(--line); padding: 12px 14px 14px; background: var(--paper); }
+  .item.open .item-body { display: block; }
+  .item-body table { font-size: 0.85rem; }
+  .item-body .actions { margin-top: 12px; }
+  @media (max-width: 640px) {
+    .item-figs { width: 100%; justify-content: space-between; gap: 10px; }
+    .fig { text-align: left; min-width: 0; }
+  }
+  .empty {
+    text-align: center;
+    color: var(--ink-soft);
+    padding: 28px 12px;
+    font-size: 0.9rem;
+    border: 1px dashed var(--line);
+    border-radius: 9px;
+  }
+  .empty b { color: var(--ink); }
+
+  .hint { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; margin-top: 12px; }
+  .hint b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed;
+    left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 50;
+    max-width: calc(100% - 32px);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { #toast, .chev { transition: none; } }
+
+  /* ---------- print ---------- */
+  #printArea { display: none; }
+  @media print {
+    @page { margin: 16mm; }
+    body { background: #fff; color: #111; padding: 0; font-size: 12px; }
+    .app { display: none !important; }
+    #printArea { display: block; }
+    .doc { color: #111; font-family: "Instrument Sans", Helvetica, Arial, sans-serif; }
+    .doc-head { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 16px; }
+    .doc-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .doc-sub { color: #555; font-size: 12px; line-height: 1.5; }
+    .doc-meta { text-align: right; font-size: 12px; line-height: 1.6; }
+    .doc table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+    .doc th { text-align: left; border-bottom: 1px solid #111; padding: 6px 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: #444; }
+    .doc td { padding: 6px 6px; border-bottom: 1px solid #ddd; font-variant-numeric: tabular-nums; }
+    .doc th.num, .doc td.num { text-align: right; }
+    .doc tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; }
+    .doc .section { margin-top: 18px; }
+    .doc .section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #444; margin: 0 0 6px; }
+    .doc .params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 18px; font-size: 12px; }
+    .doc .params span { color: #555; }
+    .doc .total-box { margin-top: 16px; display: flex; justify-content: flex-end; }
+    .doc .total-box div { border: 2px solid #111; padding: 8px 14px; font-size: 14px; font-weight: 700; }
+    .doc .foot { margin-top: 28px; font-size: 10.5px; color: #666; border-top: 1px solid #ddd; padding-top: 8px; }
+    .doc .sign { margin-top: 40px; display: flex; gap: 40px; }
+    .doc .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #444; text-align: center; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header class="page">
-    <h1>Custo real dos aparelhos</h1>
-    <p>Preço arrematado no leilão, taxa fixa e frete Miami → PY → SP calculado sobre o valor declarado na nota — não sobre o valor real pago.</p>
+<div class="app">
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos</div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" type="button" data-tab="compra" id="tabBtnCompra">Nova compra</button>
+        <button class="tab" type="button" data-tab="compras">Compras <span class="pill" id="pillCompras">0</span></button>
+        <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
+        <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
+      </nav>
+    </div>
   </header>
 
-  <section class="card">
-    <h2>Parâmetros gerais</h2>
-    <div class="settings-grid">
-      <div class="field">
-        <label for="taxaFixa">Taxa fixa por aparelho</label>
-        <div class="input-group">
-          <span>US$</span>
-          <input type="number" id="taxaFixa" value="17" step="0.5" min="0">
+  <main class="wrap">
+
+    <!-- ================= NOVA COMPRA ================= -->
+    <section id="tab-compra" class="tabpanel active">
+      <p class="page-intro">Lance do leilão + taxa fixa + frete calculado sobre o valor declarado na nota. O resultado é o custo de cada aparelho já em São Paulo.</p>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Compra</h2>
+          <span class="badge" id="editBadge" hidden>Editando compra salva</span>
+        </div>
+        <div class="grid two">
+          <div class="field">
+            <label for="compraNome">Nome da compra</label>
+            <input type="text" id="compraNome" placeholder="ex: Leilão 17/09 — lote iPhones">
+          </div>
+          <div class="field">
+            <label for="compraData">Data</label>
+            <input type="date" id="compraData">
+          </div>
         </div>
       </div>
-      <div class="field">
-        <label for="notaPct">% da nota (valor declarado)</label>
-        <div class="input-group">
-          <input type="number" id="notaPct" value="70" step="1" min="0" max="100">
-          <span class="suffix">%</span>
+
+      <div class="card">
+        <h2>Parâmetros</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="taxaFixa">Taxa fixa por aparelho</label>
+            <div class="input-group"><span>US$</span><input type="number" id="taxaFixa" step="0.5" min="0"></div>
+          </div>
+          <div class="field">
+            <label for="notaPct">Valor da nota (% do lance)</label>
+            <div class="input-group"><input type="number" id="notaPct" step="1" min="0" max="100"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="frete1">Frete Miami → Paraguai</label>
+            <div class="input-group"><input type="number" id="frete1" step="0.1" min="0"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="frete2">Frete Paraguai → São Paulo</label>
+            <div class="input-group"><input type="number" id="frete2" step="0.1" min="0"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="cotacao">Cotação do dólar</label>
+            <div class="input-group"><span>R$</span><input type="number" id="cotacao" step="0.01" min="0"></div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="cumulativo">
+          <label for="cumulativo">Frete PY → SP calculado sobre nota + frete Miami → PY</label>
         </div>
       </div>
-      <div class="field">
-        <label for="frete1">Frete Miami → PY</label>
-        <div class="input-group">
-          <input type="number" id="frete1" value="7.5" step="0.1" min="0">
-          <span class="suffix">%</span>
+
+      <div class="card">
+        <h2>Aparelhos</h2>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th class="num">Lance (un.)</th>
+                <th class="num">Qtd</th>
+                <th class="num">% nota</th>
+                <th class="num">Nota (un.)</th>
+                <th class="num">Frete MIA→PY</th>
+                <th class="num">Frete PY→SP</th>
+                <th class="num">Custo un. US$</th>
+                <th class="num">Custo un. R$</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td class="num" id="ftPreco">—</td>
+                <td class="num" id="ftQtd">—</td>
+                <td></td>
+                <td class="num" id="ftNota">—</td>
+                <td class="num" id="ftF1">—</td>
+                <td class="num" id="ftF2">—</td>
+                <td class="num" id="ftCusto">—</td>
+                <td class="num amber" id="ftCustoBRL">—</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn dashed" id="addRow" type="button">+ adicionar aparelho</button>
+        <p class="hint"><b>% nota</b> em branco usa o valor dos parâmetros. Os valores por unidade são convertidos pela cotação informada acima.</p>
+      </div>
+
+      <div class="card">
+        <h2>Resumo da compra</h2>
+        <div class="summary">
+          <div class="breakdown">
+            <div><span>Aparelhos</span><span id="rsQtd">0</span></div>
+            <div><span>Pago no leilão</span><span id="rsLeilao">—</span></div>
+            <div><span>Taxa fixa</span><span id="rsTaxa">—</span></div>
+            <div><span>Valor da nota a declarar</span><span id="rsNota">—</span></div>
+            <div><span>Frete Miami → PY</span><span id="rsF1">—</span></div>
+            <div><span>Frete PY → SP</span><span id="rsF2">—</span></div>
+            <div class="em"><span>Custo final em US$</span><span id="rsUSD">—</span></div>
+          </div>
+          <div class="tiles">
+            <div class="tile amber">
+              <div class="label">Custo final</div>
+              <div class="value" id="rsBRL">R$ 0,00</div>
+              <div class="sub" id="rsBRLsub">—</div>
+            </div>
+            <div class="tile">
+              <div class="label">Custo médio por aparelho</div>
+              <div class="value" id="rsMedio">R$ 0,00</div>
+              <div class="sub" id="rsMedioSub">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="btnSalvarCompra" type="button">Salvar compra</button>
+          <button class="btn" id="btnPdfDraft" type="button">Gerar PDF</button>
+          <span class="spacer"></span>
+          <button class="btn ghost" id="btnCancelarEdicao" type="button" hidden>Cancelar edição</button>
+          <button class="btn ghost danger" id="btnLimpar" type="button">Limpar</button>
         </div>
       </div>
-      <div class="field">
-        <label for="frete2">Frete PY → SP</label>
-        <div class="input-group">
-          <input type="number" id="frete2" value="8" step="0.1" min="0">
-          <span class="suffix">%</span>
+    </section>
+
+    <!-- ================= COMPRAS ================= -->
+    <section id="tab-compras" class="tabpanel">
+      <p class="page-intro">Cada compra salva vira estoque. Os aparelhos ficam disponíveis na aba Vendas com o custo real de cada um.</p>
+      <div class="stats" id="comprasStats"></div>
+      <div style="height:16px"></div>
+      <div id="comprasList"></div>
+    </section>
+
+    <!-- ================= VENDAS ================= -->
+    <section id="tab-vendas" class="tabpanel">
+      <div class="stats" id="vendasStats"></div>
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <h2>Nova venda</h2>
+        <div class="grid two">
+          <div class="field">
+            <label for="vendaCliente">Cliente</label>
+            <input type="text" id="vendaCliente" list="clientesDatalist" placeholder="nome do cliente (novo ou já cadastrado)" autocomplete="off">
+            <datalist id="clientesDatalist"></datalist>
+          </div>
+          <div class="field">
+            <label for="vendaData">Data</label>
+            <input type="date" id="vendaData">
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th>Aparelho (do estoque)</th>
+                <th>IMEI / observação</th>
+                <th class="num">Qtd</th>
+                <th class="num">Preço venda un.</th>
+                <th class="num">Custo un.</th>
+                <th class="num">Lucro un.</th>
+                <th class="num">Lucro total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="vendaRows"></tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td></td>
+                <td class="num" id="vtQtd">—</td>
+                <td class="num" id="vtVenda">—</td>
+                <td class="num" id="vtCusto">—</td>
+                <td></td>
+                <td class="num" id="vtLucro">—</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn dashed" id="addVendaRow" type="button">+ adicionar aparelho</button>
+        <div class="actions">
+          <button class="btn primary" id="btnRegistrarVenda" type="button">Registrar venda</button>
+          <span class="spacer"></span>
+          <button class="btn ghost danger" id="btnLimparVenda" type="button">Limpar</button>
         </div>
       </div>
-      <div class="field">
-        <label for="cotacao">Cotação do dólar</label>
-        <div class="input-group">
-          <span>R$</span>
-          <input type="number" id="cotacao" value="5.40" step="0.01" min="0">
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Vendas registradas</h2>
+        </div>
+        <div id="vendasList"></div>
+      </div>
+
+      <div class="card">
+        <h2>Dados que aparecem no documento do cliente</h2>
+        <div class="grid two">
+          <div class="field">
+            <label for="empresa">Nome / razão social</label>
+            <input type="text" id="empresa" placeholder="ex: Seu Nome Aparelhos">
+          </div>
+          <div class="field">
+            <label for="contato">Contato (WhatsApp, Pix, e-mail)</label>
+            <input type="text" id="contato" placeholder="ex: (11) 9 9999-9999 · Pix: chave">
+          </div>
         </div>
       </div>
-    </div>
-    <div class="toggle-row">
-      <input type="checkbox" id="cumulativo">
-      <label for="cumulativo">Frete PY → SP incide sobre nota + frete Miami-PY (em vez de só sobre a nota)</label>
-    </div>
-  </section>
+    </section>
 
-  <section class="card">
-    <h2>Aparelhos</h2>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Modelo</th>
-            <th class="num">Preço leilão (un.)</th>
-            <th class="num">Qtd</th>
-            <th class="num">% nota</th>
-            <th class="num">Valor da nota</th>
-            <th class="num">Frete MIA→PY</th>
-            <th class="num">Frete PY→SP</th>
-            <th class="num">Custo unitário US$</th>
-            <th class="num">Custo unitário R$</th>
-            <th class="num">Preço venda (R$)</th>
-            <th class="num">Lucro unit. (R$)</th>
-            <th class="num">Margem</th>
-            <th class="num">Lucro linha (R$)</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="rows"></tbody>
-        <tfoot>
-          <tr>
-            <td>Total</td>
-            <td class="num" id="ftPreco">—</td>
-            <td class="num" id="ftQtd">—</td>
-            <td></td>
-            <td class="num" id="ftNota">—</td>
-            <td class="num" id="ftF1">—</td>
-            <td class="num" id="ftF2">—</td>
-            <td class="num" id="ftCusto">—</td>
-            <td class="num total" id="ftCustoBRL">—</td>
-            <td class="num" id="ftVenda">—</td>
-            <td></td>
-            <td class="num" id="ftMargem">—</td>
-            <td class="num total" id="ftLucro">—</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <button class="add-row-btn" id="addRow" type="button">+ adicionar aparelho</button>
-
-    <div class="legend">
-      <span><b>% nota</b> — em branco usa o % geral acima</span>
-      <span><b>Custo unitário</b> — preço de compra final de cada aparelho, já em SP (leilão + taxa fixa + frete)</span>
-      <span><b>Lucro unit.</b> = preço de venda − custo unitário R$</span>
-      <span><b>Lucro linha</b> = lucro unitário × qtd</span>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Resumo</h2>
-    <div class="summary-strip">
-      <div class="summary-item">
-        <div class="label">Aparelhos</div>
-        <div class="value" id="sumCount">0</div>
+    <!-- ================= CLIENTES ================= -->
+    <section id="tab-clientes" class="tabpanel">
+      <div class="card">
+        <div class="card-head">
+          <h2 id="clienteFormTitle">Novo cliente</h2>
+          <span class="badge" id="clienteEditBadge" hidden>Editando</span>
+        </div>
+        <div class="grid two">
+          <div class="field">
+            <label for="clienteNome">Nome</label>
+            <input type="text" id="clienteNome" placeholder="nome ou loja">
+          </div>
+          <div class="field">
+            <label for="clienteTel">Telefone / WhatsApp</label>
+            <input type="text" id="clienteTel" placeholder="(11) 9 9999-9999">
+          </div>
+          <div class="field" style="grid-column: 1 / -1">
+            <label for="clienteObs">Observações</label>
+            <input type="text" id="clienteObs" placeholder="cidade, forma de pagamento, referências…">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="btnSalvarCliente" type="button">Salvar cliente</button>
+          <button class="btn ghost" id="btnCancelarCliente" type="button" hidden>Cancelar</button>
+        </div>
       </div>
-      <div class="summary-item">
-        <div class="label">Custo total (compra)</div>
-        <div class="value" id="sumPreco">R$ 0,00</div>
-        <div class="sub" id="sumPrecoSub">—</div>
-      </div>
-      <div class="summary-item">
-        <div class="label">Venda total</div>
-        <div class="value" id="sumVenda">R$ 0,00</div>
-        <div class="sub">soma dos preços de venda</div>
-      </div>
-      <div class="summary-item highlight">
-        <div class="label">Lucro total</div>
-        <div class="value" id="sumCusto">R$ 0,00</div>
-        <div class="sub" id="sumCustoUnit">—</div>
-      </div>
-    </div>
-  </section>
+      <div id="clientesList"></div>
+    </section>
 
-  <footer class="note">
-    Os dados ficam salvos apenas neste navegador. O custo unitário é o preço de compra final do aparelho já em SP (leilão + taxa fixa + frete calculado sobre a nota). O lucro é a diferença entre o preço de venda que você define e esse custo unitário. A cotação do dólar é só pra conversão de referência.
-  </footer>
-
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
 </div>
+
+<div id="printArea"></div>
 
 <script>
 (function () {
-  const STORAGE_KEY = "custo-aparelhos-state-v1";
+  "use strict";
+  const KEY = "gestao-aparelhos-v1";
+  const OLD_KEY = "custo-aparelhos-state-v1";
+  const UI_KEY = "gestao-aparelhos-ui";
   const $ = (id) => document.getElementById(id);
 
-  const settingsEls = {
-    taxaFixa: $("taxaFixa"),
-    notaPct: $("notaPct"),
-    frete1: $("frete1"),
-    frete2: $("frete2"),
-    cumulativo: $("cumulativo"),
-    cotacao: $("cotacao"),
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const todayISO = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
+
+  const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cumulativo: false, cotacao: 5.40, empresa: "", contato: "" };
+  const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cumulativo", "cotacao"];
+
+  const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
+  const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()] });
+  const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [] });
 
   let state = {
-    settings: { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cumulativo: false, cotacao: 5.40 },
-    rows: [
-      { modelo: "iPhone 12 128GB White DLS B+", preco: 163, notaPct: 90, qty: 3 },
-      { modelo: "iPhone 13 128GB C", preco: 195, notaPct: 90, qty: 4 },
-      { modelo: "iPhone 14 128GB C", preco: 220, notaPct: 90, qty: 3 },
-    ],
+    settings: { ...DEFAULT_SETTINGS },
+    draft: newDraft(),
+    vendaDraft: newVendaDraft(),
+    compras: [],
+    vendas: [],
+    clientes: [],
   };
+  let clienteEditId = null;
+  const openItems = new Set();
 
+  /* ---------------- storage ---------------- */
   function load() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.settings && Array.isArray(parsed.rows)) state = parsed;
+        const p = JSON.parse(raw);
+        if (p && p.settings) {
+          state = {
+            settings: { ...DEFAULT_SETTINGS, ...p.settings },
+            draft: p.draft && Array.isArray(p.draft.rows) ? p.draft : newDraft(),
+            vendaDraft: p.vendaDraft && Array.isArray(p.vendaDraft.itens) ? p.vendaDraft : newVendaDraft(),
+            compras: Array.isArray(p.compras) ? p.compras : [],
+            vendas: Array.isArray(p.vendas) ? p.vendas : [],
+            clientes: Array.isArray(p.clientes) ? p.clientes : [],
+          };
+          return;
+        }
       }
-    } catch (e) { /* ignore corrupt storage */ }
+      // migrate from the first calculator version
+      const old = localStorage.getItem(OLD_KEY);
+      if (old) {
+        const p = JSON.parse(old);
+        if (p && p.settings) state.settings = { ...DEFAULT_SETTINGS, ...p.settings };
+        if (p && Array.isArray(p.rows) && p.rows.length) {
+          state.draft.rows = p.rows.map((r) => ({ id: uid(), modelo: r.modelo || "", preco: Number(r.preco) || 0, notaPct: r.notaPct ?? null, qty: Number(r.qty) || 1 }));
+        }
+        return;
+      }
+      // first visit: example rows so the screen is not empty
+      state.draft.rows = [
+        { id: uid(), modelo: "iPhone 12 128GB White DLS B+", preco: 163, notaPct: 90, qty: 3 },
+        { id: uid(), modelo: "iPhone 13 128GB C", preco: 195, notaPct: 90, qty: 4 },
+        { id: uid(), modelo: "iPhone 14 128GB C", preco: 220, notaPct: 90, qty: 3 },
+      ];
+    } catch (e) { /* storage unavailable or corrupt */ }
   }
-
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
   }
 
-  function fmtUSD(n) {
-    if (!isFinite(n)) return "—";
-    return "US$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  /* ---------------- formatting ---------------- */
+  const nf2 = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const fmtUSD = (n) => isFinite(n) ? "US$ " + Number(n).toLocaleString("pt-BR", nf2) : "—";
+  const fmtBRL = (n) => isFinite(n) ? "R$ " + Number(n).toLocaleString("pt-BR", nf2) : "—";
+  const fmtPct = (n) => (n === null || !isFinite(n)) ? "—" : Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  const fmtDate = (iso) => {
+    if (!iso) return "—";
+    const [y, m, d] = String(iso).split("-");
+    return (d && m && y) ? `${d}/${m}/${y}` : iso;
+  };
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const numOr = (v, d) => { const n = Number(v); return isFinite(n) ? n : d; };
+  const isBlank = (v) => v === null || v === undefined || v === "";
 
-  function fmtBRL(n) {
-    if (!isFinite(n)) return "—";
-    return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function fmtPct(n) {
-    if (n === null || !isFinite(n)) return "—";
-    return n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
-  }
-
-  function lucroClass(n) {
-    if (!isFinite(n)) return "computed";
-    return "computed " + (n < 0 ? "lucro-neg" : "lucro-pos");
-  }
-
-  function computeRow(row) {
-    const s = state.settings;
-    const preco = Number(row.preco) || 0;
-    const notaPct = row.notaPct === null || row.notaPct === "" || row.notaPct === undefined
-      ? Number(s.notaPct) || 0
-      : Number(row.notaPct) || 0;
-    const valorNota = preco * (notaPct / 100);
-    const frete1 = valorNota * ((Number(s.frete1) || 0) / 100);
+  /* ---------------- calculation ---------------- */
+  function calcRow(row, s) {
+    const preco = numOr(row.preco, 0);
+    const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
+    const valorNota = preco * notaPct / 100;
+    const frete1 = valorNota * numOr(s.frete1, 0) / 100;
     const base2 = s.cumulativo ? valorNota + frete1 : valorNota;
-    const frete2 = base2 * ((Number(s.frete2) || 0) / 100);
-    const freteTotal = frete1 + frete2;
-    const custoTotal = preco + (Number(s.taxaFixa) || 0) + freteTotal;
-    const cotacao = Number(s.cotacao) || 0;
-    const custoTotalBRL = custoTotal * cotacao;
-    const qty = Number(row.qty) || 1;
-    const vendaBRL = row.vendaBRL === null || row.vendaBRL === "" || row.vendaBRL === undefined ? 0 : Number(row.vendaBRL) || 0;
-    const lucroUnitBRL = vendaBRL - custoTotalBRL;
-    const margemPct = vendaBRL > 0 ? (lucroUnitBRL / vendaBRL) * 100 : null;
-    const lineCusto = custoTotal * qty;
-    const lineCustoBRL = custoTotalBRL * qty;
-    const linePreco = preco * qty;
-    const lineValorNota = valorNota * qty;
-    const lineFrete1 = frete1 * qty;
-    const lineFrete2 = frete2 * qty;
-    const lineVendaBRL = vendaBRL * qty;
-    const lineLucroBRL = lucroUnitBRL * qty;
-    return { preco, notaPct, valorNota, frete1, frete2, freteTotal, custoTotal, custoTotalBRL, qty,
-      vendaBRL, lucroUnitBRL, margemPct,
-      lineCusto, lineCustoBRL, linePreco, lineValorNota, lineFrete1, lineFrete2, lineVendaBRL, lineLucroBRL };
+    const frete2 = base2 * numOr(s.frete2, 0) / 100;
+    const taxa = numOr(s.taxaFixa, 0);
+    const custoUSD = preco + taxa + frete1 + frete2;
+    const cot = numOr(s.cotacao, 0);
+    const custoBRL = custoUSD * cot;
+    const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
+    return {
+      preco, notaPct, valorNota, frete1, frete2, taxa, custoUSD, custoBRL, qty,
+      lPreco: preco * qty, lNota: valorNota * qty, lF1: frete1 * qty, lF2: frete2 * qty,
+      lTaxa: taxa * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty,
+    };
   }
+  function calcTotals(rows, s) {
+    const t = { qty: 0, preco: 0, nota: 0, f1: 0, f2: 0, taxa: 0, usd: 0, brl: 0 };
+    rows.forEach((r) => {
+      const c = calcRow(r, s);
+      t.qty += c.qty; t.preco += c.lPreco; t.nota += c.lNota; t.f1 += c.lF1; t.f2 += c.lF2;
+      t.taxa += c.lTaxa; t.usd += c.lUSD; t.brl += c.lBRL;
+    });
+    return t;
+  }
+  const pickSnap = (s) => { const o = {}; SNAP_KEYS.forEach((k) => { o[k] = s[k]; }); return o; };
+
+  function soldQty(compraId, rowId) {
+    let n = 0;
+    state.vendas.forEach((v) => v.itens.forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }));
+    return n;
+  }
+  function stockList() {
+    const out = [];
+    state.compras.forEach((c) => c.rows.forEach((r) => {
+      const k = calcRow(r, c.settings);
+      const sold = soldQty(c.id, r.id);
+      out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data,
+        modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, avail: k.qty - sold });
+    }));
+    return out;
+  }
+  function itemCusto(i) {
+    const c = state.compras.find((x) => x.id === i.compraId);
+    const r = c && c.rows.find((x) => x.id === i.rowId);
+    if (c && r) return calcRow(r, c.settings).custoBRL;
+    return numOr(i.custoBRL, 0);
+  }
+  function vendaTotals(v) {
+    let qty = 0, venda = 0, custo = 0;
+    v.itens.forEach((i) => {
+      const q = numOr(i.qty, 0), p = numOr(i.preco, 0), c = itemCusto(i);
+      qty += q; venda += p * q; custo += c * q;
+    });
+    return { qty, venda, custo, lucro: venda - custo, margem: venda > 0 ? (venda - custo) / venda * 100 : null };
+  }
+
+  /* ---------------- toast ---------------- */
+  let toastTimer;
+  function toast(msg) {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  }
+
+  /* ---------------- tabs ---------------- */
+  function showTab(name) {
+    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".tabpanel").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
+    try { localStorage.setItem(UI_KEY, name); } catch (e) { /* ignore */ }
+    window.scrollTo({ top: 0 });
+  }
+  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+  /* ================= NOVA COMPRA ================= */
+  const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cumulativo: $("cumulativo"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato") };
 
   function renderSettings() {
-    settingsEls.taxaFixa.value = state.settings.taxaFixa;
-    settingsEls.notaPct.value = state.settings.notaPct;
-    settingsEls.frete1.value = state.settings.frete1;
-    settingsEls.frete2.value = state.settings.frete2;
-    settingsEls.cumulativo.checked = !!state.settings.cumulativo;
-    settingsEls.cotacao.value = state.settings.cotacao ?? 5.40;
+    const s = state.settings;
+    settingsEls.taxaFixa.value = s.taxaFixa;
+    settingsEls.notaPct.value = s.notaPct;
+    settingsEls.frete1.value = s.frete1;
+    settingsEls.frete2.value = s.frete2;
+    settingsEls.cumulativo.checked = !!s.cumulativo;
+    settingsEls.cotacao.value = s.cotacao;
+    settingsEls.empresa.value = s.empresa || "";
+    settingsEls.contato.value = s.contato || "";
   }
+  Object.entries(settingsEls).forEach(([key, el]) => {
+    el.addEventListener("input", () => {
+      if (key === "cumulativo") state.settings.cumulativo = el.checked;
+      else if (key === "empresa" || key === "contato") state.settings[key] = el.value;
+      else state.settings[key] = el.value === "" ? 0 : Number(el.value);
+      save();
+      if (key !== "empresa" && key !== "contato") renderRows();
+    });
+  });
+
+  function renderDraftHead() {
+    const d = state.draft;
+    $("compraNome").value = d.nome || "";
+    $("compraData").value = d.data || todayISO();
+    $("editBadge").hidden = !d.editingId;
+    $("btnCancelarEdicao").hidden = !d.editingId;
+    $("btnSalvarCompra").textContent = d.editingId ? "Salvar alterações" : "Salvar compra";
+  }
+  $("compraNome").addEventListener("input", (e) => { state.draft.nome = e.target.value; save(); });
+  $("compraData").addEventListener("input", (e) => { state.draft.data = e.target.value; save(); });
 
   function renderRows() {
     const tbody = $("rows");
+    const s = state.settings;
     tbody.innerHTML = "";
-    state.rows.forEach((row, idx) => {
-      const c = computeRow(row);
+    state.draft.rows.forEach((row, idx) => {
+      const c = calcRow(row, s);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><input type="text" data-idx="${idx}" data-field="modelo" value="${row.modelo ? escapeAttr(row.modelo) : ""}" placeholder="ex: iPhone 15 128GB"></td>
-        <td class="num"><input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0.00" style="text-align:right"></td>
-        <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}" style="text-align:right"></td>
-        <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${state.settings.notaPct}" style="text-align:right"></td>
+        <td><input type="text" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="ex: iPhone 15 128GB"></td>
+        <td class="num"><input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0"></td>
+        <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}"></td>
+        <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${esc(s.notaPct)}"></td>
         <td class="num computed">${fmtUSD(c.valorNota)}</td>
         <td class="num computed">${fmtUSD(c.frete1)}</td>
         <td class="num computed">${fmtUSD(c.frete2)}</td>
-        <td class="num computed total">${fmtUSD(c.custoTotal)}</td>
-        <td class="num computed total">${fmtBRL(c.custoTotalBRL)}</td>
-        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="vendaBRL" value="${row.vendaBRL ?? ""}" placeholder="0,00" style="text-align:right"></td>
-        <td class="num ${lucroClass(c.lucroUnitBRL)}">${row.vendaBRL ? fmtBRL(c.lucroUnitBRL) : "—"}</td>
-        <td class="num ${lucroClass(c.lucroUnitBRL)}">${fmtPct(c.margemPct)}</td>
-        <td class="num ${lucroClass(c.lineLucroBRL)}">${row.vendaBRL ? fmtBRL(c.lineLucroBRL) : "—"}</td>
-        <td><button class="row-remove" type="button" data-idx="${idx}" aria-label="Remover aparelho" title="Remover">✕</button></td>
-      `;
+        <td class="num computed strong">${fmtUSD(c.custoUSD)}</td>
+        <td class="num computed amber">${fmtBRL(c.custoBRL)}</td>
+        <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover aparelho" title="Remover">✕</button></td>`;
       tbody.appendChild(tr);
     });
-
-    tbody.querySelectorAll("input").forEach((input) => {
-      input.addEventListener("input", onFieldInput);
-    });
-    tbody.querySelectorAll(".row-remove").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.idx);
-        state.rows.splice(idx, 1);
-        save();
-        renderAll();
-      });
-    });
-
-    renderTotals();
+    tbody.querySelectorAll("input").forEach((input) => input.addEventListener("input", onRowInput));
+    tbody.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => {
+      state.draft.rows.splice(Number(btn.dataset.remove), 1);
+      if (!state.draft.rows.length) state.draft.rows.push(newRow());
+      save(); renderRows();
+    }));
+    renderDraftTotals();
   }
-
-  function escapeAttr(str) {
-    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-  }
-
-  function onFieldInput(e) {
+  function onRowInput(e) {
     const idx = Number(e.target.dataset.idx);
     const field = e.target.dataset.field;
-    let val = e.target.value;
-    if (field === "preco") {
-      state.rows[idx].preco = val === "" ? 0 : Number(val);
-    } else if (field === "qty") {
-      state.rows[idx].qty = val === "" ? 1 : Number(val);
-    } else if (field === "vendaBRL") {
-      state.rows[idx].vendaBRL = val === "" ? null : Number(val);
-    } else if (field === "notaPct") {
-      state.rows[idx].notaPct = val === "" ? null : Number(val);
-    } else {
-      state.rows[idx].modelo = val;
-    }
+    const val = e.target.value;
+    const row = state.draft.rows[idx];
+    if (!row) return;
+    if (field === "preco") row.preco = val === "" ? 0 : Number(val);
+    else if (field === "qty") row.qty = val === "" ? 1 : Number(val);
+    else if (field === "notaPct") row.notaPct = val === "" ? null : Number(val);
+    else row.modelo = val;
     save();
-    renderRowComputed(idx);
-    renderTotals();
-  }
-
-  function renderRowComputed(idx) {
-    const row = state.rows[idx];
-    const c = computeRow(row);
-    const tr = $("rows").children[idx];
-    if (!tr) return;
-    const cells = tr.querySelectorAll("td.computed");
+    const c = calcRow(row, state.settings);
+    const cells = $("rows").children[idx].querySelectorAll("td.computed");
     cells[0].textContent = fmtUSD(c.valorNota);
     cells[1].textContent = fmtUSD(c.frete1);
     cells[2].textContent = fmtUSD(c.frete2);
-    cells[3].textContent = fmtUSD(c.custoTotal);
-    cells[4].textContent = fmtBRL(c.custoTotalBRL);
-    cells[5].textContent = row.vendaBRL ? fmtBRL(c.lucroUnitBRL) : "—";
-    cells[5].className = "num " + lucroClass(c.lucroUnitBRL);
-    cells[6].textContent = fmtPct(c.margemPct);
-    cells[6].className = "num " + lucroClass(c.lucroUnitBRL);
-    cells[7].textContent = row.vendaBRL ? fmtBRL(c.lineLucroBRL) : "—";
-    cells[7].className = "num " + lucroClass(c.lineLucroBRL);
+    cells[3].textContent = fmtUSD(c.custoUSD);
+    cells[4].textContent = fmtBRL(c.custoBRL);
+    renderDraftTotals();
   }
-
-  function renderTotals() {
-    let sPreco = 0, sQty = 0, sNota = 0, sF1 = 0, sF2 = 0, sCustoUSD = 0, sCustoBRL = 0, sVendaBRL = 0, sLucroBRL = 0;
-    state.rows.forEach((row) => {
-      const c = computeRow(row);
-      sPreco += c.linePreco; sQty += c.qty; sNota += c.lineValorNota; sF1 += c.lineFrete1; sF2 += c.lineFrete2;
-      sCustoUSD += c.lineCusto; sCustoBRL += c.lineCustoBRL;
-      sVendaBRL += c.lineVendaBRL; sLucroBRL += c.lineLucroBRL;
-    });
-    const margemTotal = sVendaBRL > 0 ? (sLucroBRL / sVendaBRL) * 100 : null;
-
-    $("ftPreco").textContent = fmtUSD(sPreco);
-    $("ftQtd").textContent = sQty;
-    $("ftNota").textContent = fmtUSD(sNota);
-    $("ftF1").textContent = fmtUSD(sF1);
-    $("ftF2").textContent = fmtUSD(sF2);
-    $("ftCusto").textContent = fmtUSD(sCustoUSD);
-    $("ftCustoBRL").textContent = fmtBRL(sCustoBRL);
-    $("ftVenda").textContent = sVendaBRL ? fmtBRL(sVendaBRL) : "—";
-    $("ftMargem").textContent = fmtPct(margemTotal);
-    $("ftLucro").textContent = sVendaBRL ? fmtBRL(sLucroBRL) : "—";
-
-    $("sumCount").textContent = sQty;
-    $("sumPreco").textContent = fmtBRL(sCustoBRL);
-    $("sumPrecoSub").textContent = fmtUSD(sCustoUSD) + " landed em SP";
-    $("sumVenda").textContent = fmtBRL(sVendaBRL);
-    $("sumCusto").textContent = fmtBRL(sLucroBRL);
-    $("sumCustoUnit").textContent = sVendaBRL
-      ? "margem de " + fmtPct(margemTotal) + " sobre a venda"
-      : "defina o preço de venda para calcular";
+  function renderDraftTotals() {
+    const t = calcTotals(state.draft.rows, state.settings);
+    $("ftPreco").textContent = fmtUSD(t.preco);
+    $("ftQtd").textContent = t.qty;
+    $("ftNota").textContent = fmtUSD(t.nota);
+    $("ftF1").textContent = fmtUSD(t.f1);
+    $("ftF2").textContent = fmtUSD(t.f2);
+    $("ftCusto").textContent = fmtUSD(t.usd);
+    $("ftCustoBRL").textContent = fmtBRL(t.brl);
+    $("rsQtd").textContent = t.qty;
+    $("rsLeilao").textContent = fmtUSD(t.preco);
+    $("rsTaxa").textContent = fmtUSD(t.taxa);
+    $("rsNota").textContent = fmtUSD(t.nota);
+    $("rsF1").textContent = fmtUSD(t.f1);
+    $("rsF2").textContent = fmtUSD(t.f2);
+    $("rsUSD").textContent = fmtUSD(t.usd);
+    $("rsBRL").textContent = fmtBRL(t.brl);
+    $("rsBRLsub").textContent = "cotação R$ " + Number(numOr(state.settings.cotacao, 0)).toLocaleString("pt-BR", nf2);
+    $("rsMedio").textContent = fmtBRL(t.qty ? t.brl / t.qty : 0);
+    $("rsMedioSub").textContent = t.qty ? fmtUSD(t.usd / t.qty) + " por aparelho" : "—";
   }
-
-  function renderAll() {
-    renderSettings();
-    renderRows();
-  }
-
-  Object.entries(settingsEls).forEach(([key, el]) => {
-    el.addEventListener("input", () => {
-      if (key === "cumulativo") {
-        state.settings.cumulativo = el.checked;
-      } else {
-        state.settings[key] = el.value === "" ? 0 : Number(el.value);
-      }
-      save();
-      renderRows();
-    });
-  });
 
   $("addRow").addEventListener("click", () => {
-    state.rows.push({ modelo: "", preco: 0, notaPct: null, qty: 1, vendaBRL: null });
-    save();
-    renderAll();
+    state.draft.rows.push(newRow());
+    save(); renderRows();
+    const inputs = $("rows").querySelectorAll('input[data-field="modelo"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+  $("btnLimpar").addEventListener("click", () => {
+    if (!confirm("Limpar todos os aparelhos desta compra?")) return;
+    const editingId = state.draft.editingId;
+    state.draft = newDraft();
+    state.draft.editingId = editingId;
+    save(); renderDraftHead(); renderRows();
+  });
+  $("btnCancelarEdicao").addEventListener("click", () => {
+    state.draft = newDraft();
+    save(); renderDraftHead(); renderRows();
+    showTab("compras");
   });
 
+  function validRows(rows) {
+    return rows.filter((r) => (r.modelo || "").trim() && numOr(r.preco, 0) > 0);
+  }
+  $("btnSalvarCompra").addEventListener("click", () => {
+    const d = state.draft;
+    const rows = validRows(d.rows);
+    if (!rows.length) { toast("Preencha pelo menos um aparelho com modelo e lance."); return; }
+    const nome = (d.nome || "").trim() || ("Compra " + fmtDate(d.data));
+    const snap = pickSnap(state.settings);
+    const clean = rows.map((r) => ({ id: r.id || uid(), modelo: r.modelo.trim(), preco: numOr(r.preco, 0), notaPct: isBlank(r.notaPct) ? null : numOr(r.notaPct, 0), qty: Math.max(1, Math.round(numOr(r.qty, 1))) }));
+    if (d.editingId) {
+      const c = state.compras.find((x) => x.id === d.editingId);
+      if (!c) { toast("Compra não encontrada."); state.draft = newDraft(); save(); renderAll(); return; }
+      for (const r of clean) {
+        const sold = soldQty(c.id, r.id);
+        if (r.qty < sold) { toast(`"${r.modelo}" já tem ${sold} vendido(s). A quantidade não pode ser menor.`); return; }
+      }
+      const removed = c.rows.find((cr) => !clean.find((r) => r.id === cr.id) && soldQty(c.id, cr.id) > 0);
+      if (removed) { toast(`"${removed.modelo}" já tem vendas e não pode ser removido.`); return; }
+      c.nome = nome; c.data = d.data || todayISO(); c.settings = snap; c.rows = clean;
+      toast("Compra atualizada.");
+    } else {
+      state.compras.unshift({ id: uid(), nome, data: d.data || todayISO(), settings: snap, rows: clean, criadoEm: Date.now() });
+      toast("Compra salva. Os aparelhos já estão no estoque.");
+    }
+    state.draft = newDraft();
+    save(); renderAll(); showTab("compras");
+  });
+  $("btnPdfDraft").addEventListener("click", () => {
+    const rows = validRows(state.draft.rows);
+    if (!rows.length) { toast("Preencha pelo menos um aparelho para gerar o PDF."); return; }
+    const nome = (state.draft.nome || "").trim() || ("Compra " + fmtDate(state.draft.data));
+    printCompra({ nome, data: state.draft.data, settings: pickSnap(state.settings), rows });
+  });
+
+  /* ================= COMPRAS ================= */
+  function renderCompras() {
+    const list = $("comprasList");
+    const stock = stockList();
+    const totalUnits = stock.reduce((a, s) => a + s.qty, 0);
+    const availUnits = stock.reduce((a, s) => a + s.avail, 0);
+    const stockBRL = stock.reduce((a, s) => a + s.avail * s.custoBRL, 0);
+    const investBRL = state.compras.reduce((a, c) => a + calcTotals(c.rows, c.settings).brl, 0);
+    $("comprasStats").innerHTML = `
+      <div class="tile"><div class="label">Compras</div><div class="value">${state.compras.length}</div><div class="sub">${totalUnits} aparelho(s) no total</div></div>
+      <div class="tile amber"><div class="label">Investido</div><div class="value">${fmtBRL(investBRL)}</div><div class="sub">custo final de todas as compras</div></div>
+      <div class="tile"><div class="label">Em estoque</div><div class="value">${availUnits}</div><div class="sub">${fmtBRL(stockBRL)} em custo</div></div>`;
+    $("pillCompras").textContent = state.compras.length;
+
+    if (!state.compras.length) {
+      list.innerHTML = `<div class="empty"><b>Nenhuma compra salva.</b><br>Monte a compra na aba “Nova compra” e clique em Salvar.</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    state.compras.forEach((c) => {
+      const t = calcTotals(c.rows, c.settings);
+      const items = stock.filter((s) => s.compraId === c.id);
+      const avail = items.reduce((a, s) => a + s.avail, 0);
+      const sold = t.qty - avail;
+      const el = document.createElement("div");
+      el.className = "item" + (openItems.has(c.id) ? " open" : "");
+      const statusBadge = avail === 0 ? `<span class="badge neutral">tudo vendido</span>` : sold > 0 ? `<span class="badge teal">${sold} vendido(s)</span>` : "";
+      el.innerHTML = `
+        <div class="item-head" data-toggle="${c.id}">
+          <span class="chev">▶</span>
+          <div class="item-main">
+            <div class="item-title">${esc(c.nome)} ${statusBadge}</div>
+            <div class="item-sub">${fmtDate(c.data)} · ${t.qty} aparelho(s) · ${avail} em estoque · cotação R$ ${Number(c.settings.cotacao).toLocaleString("pt-BR", nf2)}</div>
+          </div>
+          <div class="item-figs">
+            <div class="fig"><div class="l">Nota declarada</div><div class="v">${fmtUSD(t.nota)}</div></div>
+            <div class="fig"><div class="l">Custo US$</div><div class="v">${fmtUSD(t.usd)}</div></div>
+            <div class="fig"><div class="l">Custo R$</div><div class="v amber">${fmtBRL(t.brl)}</div></div>
+          </div>
+        </div>
+        <div class="item-body">
+          <div class="table-scroll">
+            <table class="wide">
+              <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Estoque</th></tr></thead>
+              <tbody>
+                ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, avail: k.qty };
+                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${k.notaPct}%</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="btn small" type="button" data-pdf="${c.id}">Gerar PDF</button>
+            <button class="btn small" type="button" data-edit="${c.id}">Editar</button>
+            <span class="spacer"></span>
+            <button class="btn small ghost danger" type="button" data-del="${c.id}">Excluir</button>
+          </div>
+        </div>`;
+      list.appendChild(el);
+    });
+    list.querySelectorAll("[data-toggle]").forEach((h) => h.addEventListener("click", () => {
+      const id = h.dataset.toggle;
+      if (openItems.has(id)) openItems.delete(id); else openItems.add(id);
+      h.parentElement.classList.toggle("open");
+    }));
+    list.querySelectorAll("[data-pdf]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.pdf);
+      if (c) printCompra(c);
+    }));
+    list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.edit);
+      if (!c) return;
+      if (validRows(state.draft.rows).length && !state.draft.editingId && !confirm("A compra em andamento na aba “Nova compra” será substituída. Continuar?")) return;
+      state.settings = { ...state.settings, ...c.settings };
+      state.draft = { editingId: c.id, nome: c.nome, data: c.data, rows: c.rows.map((r) => ({ ...r })) };
+      save(); renderAll(); showTab("compra");
+    }));
+    list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.del);
+      if (!c) return;
+      const sold = c.rows.reduce((a, r) => a + soldQty(c.id, r.id), 0);
+      if (sold > 0) { toast("Esta compra tem aparelhos vendidos. Exclua as vendas primeiro."); return; }
+      if (!confirm(`Excluir a compra “${c.nome}”?`)) return;
+      state.compras = state.compras.filter((x) => x.id !== c.id);
+      if (state.draft.editingId === c.id) state.draft = newDraft();
+      save(); renderAll(); toast("Compra excluída.");
+    }));
+  }
+
+  /* ================= VENDAS ================= */
+  function renderVendaDraftHead() {
+    $("vendaCliente").value = state.vendaDraft.cliente || "";
+    $("vendaData").value = state.vendaDraft.data || todayISO();
+    $("clientesDatalist").innerHTML = state.clientes.map((c) => `<option value="${esc(c.nome)}"></option>`).join("");
+  }
+  $("vendaCliente").addEventListener("input", (e) => { state.vendaDraft.cliente = e.target.value; save(); });
+  $("vendaData").addEventListener("input", (e) => { state.vendaDraft.data = e.target.value; save(); });
+
+  function stockOptions(selectedKey) {
+    const stock = stockList();
+    const opts = stock.filter((s) => s.avail > 0 || s.key === selectedKey);
+    if (!opts.length) return `<option value="">— sem aparelhos em estoque —</option>`;
+    return `<option value="">— escolher —</option>` + opts.map((s) =>
+      `<option value="${s.key}" ${s.key === selectedKey ? "selected" : ""}>${esc(s.modelo)} · ${esc(s.compraNome)} · ${s.avail} disp. · custo ${fmtBRL(s.custoBRL)}</option>`).join("");
+  }
+  function renderVendaRows() {
+    const tbody = $("vendaRows");
+    tbody.innerHTML = "";
+    const stock = stockList();
+    state.vendaDraft.itens.forEach((it, idx) => {
+      const key = it.compraId ? it.compraId + "|" + it.rowId : "";
+      const s = stock.find((x) => x.key === key);
+      const custo = s ? s.custoBRL : 0;
+      const q = numOr(it.qty, 1), p = numOr(it.preco, 0);
+      const lucroUn = p - custo, lucro = lucroUn * q;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><select data-idx="${idx}" data-field="key">${stockOptions(key)}</select></td>
+        <td><input type="text" data-idx="${idx}" data-field="obs" value="${esc(it.obs)}" placeholder="opcional"></td>
+        <td class="num"><input type="number" step="1" min="1" ${s ? `max="${s.avail}"` : ""} data-idx="${idx}" data-field="qty" value="${it.qty ?? 1}"></td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="preco" value="${it.preco ?? ""}" placeholder="R$"></td>
+        <td class="num computed">${s ? fmtBRL(custo) : "—"}</td>
+        <td class="num computed ${p > 0 && s ? (lucroUn < 0 ? "neg" : "pos") : ""}">${p > 0 && s ? fmtBRL(lucroUn) : "—"}</td>
+        <td class="num computed ${p > 0 && s ? (lucro < 0 ? "neg" : "pos") : ""}">${p > 0 && s ? fmtBRL(lucro) : "—"}</td>
+        <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover" title="Remover">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+    if (!state.vendaDraft.itens.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="8" class="muted" style="white-space:normal">Nenhum aparelho adicionado. ${stock.some((s) => s.avail > 0) ? "Clique em “adicionar aparelho” e escolha um item do estoque." : "Salve uma compra primeiro para ter aparelhos em estoque."}</td>`;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", (e) => {
+      const it = state.vendaDraft.itens[Number(e.target.dataset.idx)];
+      const [compraId, rowId] = e.target.value.split("|");
+      it.compraId = compraId || null; it.rowId = rowId || null;
+      save(); renderVendaRows();
+    }));
+    tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onVendaInput));
+    tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+      state.vendaDraft.itens.splice(Number(b.dataset.remove), 1);
+      save(); renderVendaRows();
+    }));
+    renderVendaDraftTotals();
+  }
+  function onVendaInput(e) {
+    const idx = Number(e.target.dataset.idx);
+    const it = state.vendaDraft.itens[idx];
+    if (!it) return;
+    const f = e.target.dataset.field, v = e.target.value;
+    if (f === "qty") it.qty = v === "" ? 1 : Number(v);
+    else if (f === "preco") it.preco = v === "" ? null : Number(v);
+    else it.obs = v;
+    save();
+    const s = stockList().find((x) => x.key === it.compraId + "|" + it.rowId);
+    const custo = s ? s.custoBRL : 0;
+    const q = numOr(it.qty, 1), p = numOr(it.preco, 0);
+    const lucroUn = p - custo, lucro = lucroUn * q;
+    const cells = $("vendaRows").children[idx].querySelectorAll("td.computed");
+    cells[1].textContent = p > 0 && s ? fmtBRL(lucroUn) : "—";
+    cells[1].className = "num computed " + (p > 0 && s ? (lucroUn < 0 ? "neg" : "pos") : "");
+    cells[2].textContent = p > 0 && s ? fmtBRL(lucro) : "—";
+    cells[2].className = "num computed " + (p > 0 && s ? (lucro < 0 ? "neg" : "pos") : "");
+    renderVendaDraftTotals();
+  }
+  function renderVendaDraftTotals() {
+    const stock = stockList();
+    let qty = 0, venda = 0, custo = 0, any = false;
+    state.vendaDraft.itens.forEach((it) => {
+      const s = stock.find((x) => x.key === it.compraId + "|" + it.rowId);
+      if (!s) return;
+      const q = numOr(it.qty, 1), p = numOr(it.preco, 0);
+      qty += q; venda += p * q; custo += s.custoBRL * q; any = true;
+    });
+    const lucro = venda - custo;
+    $("vtQtd").textContent = any ? qty : "—";
+    $("vtVenda").textContent = any ? fmtBRL(venda) : "—";
+    $("vtCusto").textContent = any ? fmtBRL(custo) : "—";
+    $("vtLucro").textContent = any && venda > 0 ? fmtBRL(lucro) : "—";
+    $("vtLucro").className = "num " + (any && venda > 0 ? (lucro < 0 ? "neg" : "pos") : "");
+  }
+  $("addVendaRow").addEventListener("click", () => {
+    if (!stockList().some((s) => s.avail > 0)) { toast("Sem aparelhos em estoque. Salve uma compra primeiro."); return; }
+    state.vendaDraft.itens.push({ compraId: null, rowId: null, qty: 1, preco: null, obs: "" });
+    save(); renderVendaRows();
+    const sels = $("vendaRows").querySelectorAll("select");
+    if (sels.length) sels[sels.length - 1].focus();
+  });
+  $("btnLimparVenda").addEventListener("click", () => {
+    state.vendaDraft = newVendaDraft();
+    save(); renderVendaDraftHead(); renderVendaRows();
+  });
+  $("btnRegistrarVenda").addEventListener("click", () => {
+    const d = state.vendaDraft;
+    const nome = (d.cliente || "").trim();
+    if (!nome) { toast("Informe o cliente."); $("vendaCliente").focus(); return; }
+    const itens = d.itens.filter((i) => i.compraId && i.rowId);
+    if (!itens.length) { toast("Adicione pelo menos um aparelho do estoque."); return; }
+    const stock = stockList();
+    const need = {};
+    for (const i of itens) {
+      const q = Math.max(1, Math.round(numOr(i.qty, 1)));
+      if (!(numOr(i.preco, 0) > 0)) { toast("Informe o preço de venda de todos os aparelhos."); return; }
+      const k = i.compraId + "|" + i.rowId;
+      need[k] = (need[k] || 0) + q;
+    }
+    for (const k in need) {
+      const s = stock.find((x) => x.key === k);
+      if (!s) { toast("Um dos aparelhos não está mais no estoque."); return; }
+      if (need[k] > s.avail) { toast(`Estoque insuficiente de “${s.modelo}”: ${s.avail} disponível.`); return; }
+    }
+    let cl = state.clientes.find((c) => c.nome.trim().toLowerCase() === nome.toLowerCase());
+    if (!cl) { cl = { id: uid(), nome, telefone: "", obs: "", criadoEm: Date.now() }; state.clientes.push(cl); }
+    state.vendas.unshift({
+      id: uid(), data: d.data || todayISO(), clienteId: cl.id, clienteNome: cl.nome, criadoEm: Date.now(),
+      itens: itens.map((i) => {
+        const s = stock.find((x) => x.key === i.compraId + "|" + i.rowId);
+        return { compraId: i.compraId, rowId: i.rowId, modelo: s.modelo, custoUSD: s.custoUSD, custoBRL: s.custoBRL,
+          qty: Math.max(1, Math.round(numOr(i.qty, 1))), preco: numOr(i.preco, 0), obs: (i.obs || "").trim() };
+      }),
+    });
+    state.vendaDraft = newVendaDraft();
+    save(); renderAll();
+    toast("Venda registrada.");
+  });
+
+  function renderVendas() {
+    const list = $("vendasList");
+    let venda = 0, custo = 0, qty = 0;
+    state.vendas.forEach((v) => { const t = vendaTotals(v); venda += t.venda; custo += t.custo; qty += t.qty; });
+    const lucro = venda - custo;
+    const stock = stockList();
+    const availUnits = stock.reduce((a, s) => a + s.avail, 0);
+    const stockBRL = stock.reduce((a, s) => a + s.avail * s.custoBRL, 0);
+    $("vendasStats").innerHTML = `
+      <div class="tile"><div class="label">Vendido</div><div class="value">${fmtBRL(venda)}</div><div class="sub">${qty} aparelho(s) em ${state.vendas.length} venda(s)</div></div>
+      <div class="tile ${lucro < 0 ? "danger" : "teal"}"><div class="label">Lucro</div><div class="value">${fmtBRL(lucro)}</div><div class="sub">${venda > 0 ? "margem de " + fmtPct(lucro / venda * 100) : "—"}</div></div>
+      <div class="tile"><div class="label">Custo dos vendidos</div><div class="value">${fmtBRL(custo)}</div><div class="sub">preço de compra real</div></div>
+      <div class="tile"><div class="label">Em estoque</div><div class="value">${availUnits}</div><div class="sub">${fmtBRL(stockBRL)} em custo</div></div>`;
+    $("pillVendas").textContent = state.vendas.length;
+
+    if (!state.vendas.length) {
+      list.innerHTML = `<div class="empty"><b>Nenhuma venda registrada.</b><br>Registre a primeira venda acima.</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    state.vendas.forEach((v) => {
+      const t = vendaTotals(v);
+      const el = document.createElement("div");
+      el.className = "item" + (openItems.has(v.id) ? " open" : "");
+      el.innerHTML = `
+        <div class="item-head" data-toggle="${v.id}">
+          <span class="chev">▶</span>
+          <div class="item-main">
+            <div class="item-title">${esc(v.clienteNome)}</div>
+            <div class="item-sub">${fmtDate(v.data)} · ${t.qty} aparelho(s) · ${v.itens.map((i) => esc(i.modelo)).join(", ")}</div>
+          </div>
+          <div class="item-figs">
+            <div class="fig"><div class="l">Venda</div><div class="v">${fmtBRL(t.venda)}</div></div>
+            <div class="fig"><div class="l">Lucro</div><div class="v ${t.lucro < 0 ? "neg" : "pos"}">${fmtBRL(t.lucro)}</div></div>
+            <div class="fig"><div class="l">Margem</div><div class="v">${fmtPct(t.margem)}</div></div>
+          </div>
+        </div>
+        <div class="item-body">
+          <div class="table-scroll">
+            <table class="wide">
+              <thead><tr><th>Aparelho</th><th>IMEI / obs.</th><th class="num">Qtd</th><th class="num">Venda un.</th><th class="num">Custo un.</th><th class="num">Lucro un.</th><th class="num">Lucro</th></tr></thead>
+              <tbody>${v.itens.map((i) => { const c = itemCusto(i); const l = i.preco - c;
+                return `<tr><td>${esc(i.modelo)}</td><td class="muted">${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num computed">${fmtBRL(c)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l * i.qty)}</td></tr>`; }).join("")}</tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="btn small amber" type="button" data-doc="${v.id}">Documento para o cliente</button>
+            <span class="spacer"></span>
+            <button class="btn small ghost danger" type="button" data-del="${v.id}">Excluir</button>
+          </div>
+        </div>`;
+      list.appendChild(el);
+    });
+    list.querySelectorAll("[data-toggle]").forEach((h) => h.addEventListener("click", () => {
+      const id = h.dataset.toggle;
+      if (openItems.has(id)) openItems.delete(id); else openItems.add(id);
+      h.parentElement.classList.toggle("open");
+    }));
+    list.querySelectorAll("[data-doc]").forEach((b) => b.addEventListener("click", () => {
+      const v = state.vendas.find((x) => x.id === b.dataset.doc);
+      if (v) printVenda(v);
+    }));
+    list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
+      const v = state.vendas.find((x) => x.id === b.dataset.del);
+      if (!v) return;
+      if (!confirm(`Excluir a venda para “${v.clienteNome}”? Os aparelhos voltam para o estoque.`)) return;
+      state.vendas = state.vendas.filter((x) => x.id !== v.id);
+      save(); renderAll(); toast("Venda excluída.");
+    }));
+  }
+
+  /* ================= CLIENTES ================= */
+  function renderClienteForm() {
+    const c = clienteEditId ? state.clientes.find((x) => x.id === clienteEditId) : null;
+    $("clienteFormTitle").textContent = c ? "Editar cliente" : "Novo cliente";
+    $("clienteEditBadge").hidden = !c;
+    $("btnCancelarCliente").hidden = !c;
+    $("btnSalvarCliente").textContent = c ? "Salvar alterações" : "Salvar cliente";
+    $("clienteNome").value = c ? c.nome : "";
+    $("clienteTel").value = c ? c.telefone || "" : "";
+    $("clienteObs").value = c ? c.obs || "" : "";
+  }
+  $("btnSalvarCliente").addEventListener("click", () => {
+    const nome = $("clienteNome").value.trim();
+    if (!nome) { toast("Informe o nome do cliente."); $("clienteNome").focus(); return; }
+    const dup = state.clientes.find((c) => c.nome.trim().toLowerCase() === nome.toLowerCase() && c.id !== clienteEditId);
+    if (dup) { toast("Já existe um cliente com esse nome."); return; }
+    if (clienteEditId) {
+      const c = state.clientes.find((x) => x.id === clienteEditId);
+      if (c) {
+        c.nome = nome; c.telefone = $("clienteTel").value.trim(); c.obs = $("clienteObs").value.trim();
+        state.vendas.forEach((v) => { if (v.clienteId === c.id) v.clienteNome = nome; });
+      }
+      clienteEditId = null;
+      toast("Cliente atualizado.");
+    } else {
+      state.clientes.push({ id: uid(), nome, telefone: $("clienteTel").value.trim(), obs: $("clienteObs").value.trim(), criadoEm: Date.now() });
+      toast("Cliente salvo.");
+    }
+    save(); renderAll();
+  });
+  $("btnCancelarCliente").addEventListener("click", () => { clienteEditId = null; renderClienteForm(); });
+
+  function renderClientes() {
+    const list = $("clientesList");
+    $("pillClientes").textContent = state.clientes.length;
+    if (!state.clientes.length) {
+      list.innerHTML = `<div class="empty"><b>Nenhum cliente cadastrado.</b><br>Cadastre acima ou registre uma venda: o cliente é criado automaticamente.</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    const sorted = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    sorted.forEach((c) => {
+      const vendas = state.vendas.filter((v) => v.clienteId === c.id);
+      let venda = 0, lucro = 0, qty = 0, last = null;
+      vendas.forEach((v) => { const t = vendaTotals(v); venda += t.venda; lucro += t.lucro; qty += t.qty; if (!last || v.data > last) last = v.data; });
+      const el = document.createElement("div");
+      el.className = "item" + (openItems.has(c.id) ? " open" : "");
+      el.innerHTML = `
+        <div class="item-head" data-toggle="${c.id}">
+          <span class="chev">▶</span>
+          <div class="item-main">
+            <div class="item-title">${esc(c.nome)}</div>
+            <div class="item-sub">${[c.telefone, c.obs].filter(Boolean).map(esc).join(" · ") || "sem telefone"}${last ? " · última compra " + fmtDate(last) : ""}</div>
+          </div>
+          <div class="item-figs">
+            <div class="fig"><div class="l">Aparelhos</div><div class="v">${qty}</div></div>
+            <div class="fig"><div class="l">Comprou</div><div class="v">${fmtBRL(venda)}</div></div>
+            <div class="fig"><div class="l">Lucro</div><div class="v ${lucro < 0 ? "neg" : "pos"}">${fmtBRL(lucro)}</div></div>
+          </div>
+        </div>
+        <div class="item-body">
+          ${vendas.length ? `<div class="table-scroll"><table>
+            <thead><tr><th>Data</th><th>Aparelhos</th><th class="num">Qtd</th><th class="num">Venda</th><th class="num">Lucro</th><th></th></tr></thead>
+            <tbody>${vendas.map((v) => { const t = vendaTotals(v);
+              return `<tr><td>${fmtDate(v.data)}</td><td style="white-space:normal">${v.itens.map((i) => esc(i.modelo) + (i.qty > 1 ? " ×" + i.qty : "")).join(", ")}</td><td class="num">${t.qty}</td><td class="num">${fmtBRL(t.venda)}</td><td class="num ${t.lucro < 0 ? "neg" : "pos"}">${fmtBRL(t.lucro)}</td><td class="num"><button class="btn small" type="button" data-doc="${v.id}">Documento</button></td></tr>`; }).join("")}</tbody>
+          </table></div>` : `<div class="muted" style="font-size:0.85rem">Nenhuma venda para este cliente ainda.</div>`}
+          <div class="actions">
+            <button class="btn small" type="button" data-edit="${c.id}">Editar</button>
+            <span class="spacer"></span>
+            <button class="btn small ghost danger" type="button" data-del="${c.id}">Excluir</button>
+          </div>
+        </div>`;
+      list.appendChild(el);
+    });
+    list.querySelectorAll("[data-toggle]").forEach((h) => h.addEventListener("click", () => {
+      const id = h.dataset.toggle;
+      if (openItems.has(id)) openItems.delete(id); else openItems.add(id);
+      h.parentElement.classList.toggle("open");
+    }));
+    list.querySelectorAll("[data-doc]").forEach((b) => b.addEventListener("click", () => {
+      const v = state.vendas.find((x) => x.id === b.dataset.doc);
+      if (v) printVenda(v);
+    }));
+    list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => {
+      clienteEditId = b.dataset.edit; renderClienteForm(); window.scrollTo({ top: 0 }); $("clienteNome").focus();
+    }));
+    list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.clientes.find((x) => x.id === b.dataset.del);
+      if (!c) return;
+      const n = state.vendas.filter((v) => v.clienteId === c.id).length;
+      if (!confirm(n ? `Excluir “${c.nome}”? As ${n} venda(s) continuam registradas com o nome dele.` : `Excluir “${c.nome}”?`)) return;
+      state.clientes = state.clientes.filter((x) => x.id !== c.id);
+      if (clienteEditId === c.id) clienteEditId = null;
+      save(); renderAll(); toast("Cliente excluído.");
+    }));
+  }
+
+  /* ================= PRINT / PDF ================= */
+  function printHTML(html, title) {
+    const area = $("printArea");
+    area.innerHTML = html;
+    const old = document.title;
+    document.title = title;
+    const restore = () => { document.title = old; window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    setTimeout(() => window.print(), 50);
+  }
+  function docHeader(title, metaLines) {
+    const s = state.settings;
+    return `<div class="doc-head">
+      <div><div class="doc-title">${esc(title)}</div><div class="doc-sub">${esc(s.empresa || "")}${s.contato ? "<br>" + esc(s.contato) : ""}</div></div>
+      <div class="doc-meta">${metaLines.map(esc).join("<br>")}</div>
+    </div>`;
+  }
+  function printCompra(c) {
+    const t = calcTotals(c.rows, c.settings);
+    const s = c.settings;
+    const html = `<div class="doc">
+      ${docHeader("Compra de aparelhos — " + c.nome, ["Data: " + fmtDate(c.data), "Aparelhos: " + t.qty, "Cotação: R$ " + Number(s.cotacao).toLocaleString("pt-BR", nf2)])}
+      <div class="section"><h3>Parâmetros</h3>
+        <div class="params">
+          <div><span>Taxa fixa por aparelho:</span> ${fmtUSD(s.taxaFixa)}</div>
+          <div><span>Valor da nota:</span> ${s.notaPct}% do lance</div>
+          <div><span>Frete Miami → PY:</span> ${s.frete1}% da nota</div>
+          <div><span>Frete PY → SP:</span> ${s.frete2}% ${s.cumulativo ? "da nota + frete MIA→PY" : "da nota"}</div>
+        </div>
+      </div>
+      <div class="section"><h3>Aparelhos</h3>
+      <table>
+        <thead><tr><th>Modelo</th><th class="num">Qtd</th><th class="num">Lance (un.)</th><th class="num">Nota (un.)</th><th class="num">Frete MIA→PY</th><th class="num">Frete PY→SP</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Custo total R$</th></tr></thead>
+        <tbody>${c.rows.map((r) => { const k = calcRow(r, s);
+          return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.qty}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1)}</td><td class="num">${fmtUSD(k.frete2)}</td><td class="num">${fmtUSD(k.custoUSD)}</td><td class="num">${fmtBRL(k.custoBRL)}</td><td class="num">${fmtBRL(k.lBRL)}</td></tr>`; }).join("")}</tbody>
+        <tfoot><tr><td>Total</td><td class="num">${t.qty}</td><td class="num">${fmtUSD(t.preco)}</td><td class="num">${fmtUSD(t.nota)}</td><td class="num">${fmtUSD(t.f1)}</td><td class="num">${fmtUSD(t.f2)}</td><td class="num">${fmtUSD(t.usd)}</td><td></td><td class="num">${fmtBRL(t.brl)}</td></tr></tfoot>
+      </table></div>
+      <div class="section"><h3>Resumo</h3>
+        <div class="params">
+          <div><span>Pago no leilão:</span> ${fmtUSD(t.preco)}</div>
+          <div><span>Taxa fixa:</span> ${fmtUSD(t.taxa)}</div>
+          <div><span>Nota a declarar:</span> ${fmtUSD(t.nota)}</div>
+          <div><span>Frete total:</span> ${fmtUSD(t.f1 + t.f2)}</div>
+          <div><span>Custo final:</span> ${fmtUSD(t.usd)} = ${fmtBRL(t.brl)}</div>
+          <div><span>Custo médio por aparelho:</span> ${fmtBRL(t.qty ? t.brl / t.qty : 0)}</div>
+        </div>
+      </div>
+      <div class="foot">Documento de uso interno · gerado em ${new Date().toLocaleString("pt-BR")}</div>
+    </div>`;
+    printHTML(html, "Compra - " + c.nome);
+  }
+  function printVenda(v) {
+    const t = vendaTotals(v);
+    const cl = state.clientes.find((c) => c.id === v.clienteId);
+    const meta = ["Data: " + fmtDate(v.data), "Cliente: " + v.clienteNome];
+    if (cl && cl.telefone) meta.push(cl.telefone);
+    const html = `<div class="doc">
+      ${docHeader("Relação de aparelhos", meta)}
+      <table>
+        <thead><tr><th>Aparelho</th><th>IMEI / observação</th><th class="num">Qtd</th><th class="num">Valor unitário</th><th class="num">Total</th></tr></thead>
+        <tbody>${v.itens.map((i) => `<tr><td>${esc(i.modelo)}</td><td>${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco * i.qty)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td colspan="2">Total</td><td class="num">${t.qty}</td><td></td><td class="num">${fmtBRL(t.venda)}</td></tr></tfoot>
+      </table>
+      <div class="total-box"><div>Total: ${fmtBRL(t.venda)}</div></div>
+      <div class="sign"><div>${esc(state.settings.empresa || "Vendedor")}</div><div>${esc(v.clienteNome)}</div></div>
+      <div class="foot">Documento gerado em ${new Date().toLocaleString("pt-BR")}</div>
+    </div>`;
+    printHTML(html, "Aparelhos - " + v.clienteNome + " - " + fmtDate(v.data));
+  }
+
+  /* ================= boot ================= */
+  function renderAll() {
+    renderSettings();
+    renderDraftHead();
+    renderRows();
+    renderCompras();
+    renderVendaDraftHead();
+    renderVendaRows();
+    renderVendas();
+    renderClienteForm();
+    renderClientes();
+  }
   load();
   renderAll();
+  try { const t = localStorage.getItem(UI_KEY); if (t && $("tab-" + t)) showTab(t); } catch (e) { /* ignore */ }
 })();
 </script>
 </body>
