@@ -244,14 +244,6 @@
     outline-offset: -2px;
   }
 
-  .toggle-row {
-    display: flex; align-items: center; gap: 9px;
-    margin-top: 14px;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-  }
-  .toggle-row input { accent-color: var(--teal); width: 15px; height: 15px; margin: 0; }
-  .toggle-row label { cursor: pointer; }
 
   /* ---------- tables ---------- */
   .table-scroll { overflow-x: auto; margin-inline: -4px; padding-inline: 4px; }
@@ -568,10 +560,6 @@
             <div class="input-group"><span>R$</span><input type="number" id="cotacao" step="0.01" min="0"></div>
           </div>
         </div>
-        <div class="toggle-row">
-          <input type="checkbox" id="cumulativo">
-          <label for="cumulativo">Frete PY → SP calculado sobre nota + frete Miami → PY</label>
-        </div>
       </div>
 
       <div class="card">
@@ -783,8 +771,8 @@
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
 
-  const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cumulativo: false, cotacao: 5.40, empresa: "", contato: "" };
-  const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cumulativo", "cotacao"];
+  const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cotacao: 5.40, empresa: "", contato: "" };
+  const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cotacao"];
 
   const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
   const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()] });
@@ -861,8 +849,7 @@
     const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
     const valorNota = preco * notaPct / 100;
     const frete1 = valorNota * numOr(s.frete1, 0) / 100;
-    const base2 = s.cumulativo ? valorNota + frete1 : valorNota;
-    const frete2 = base2 * numOr(s.frete2, 0) / 100;
+    const frete2 = valorNota * numOr(s.frete2, 0) / 100;
     const taxa = numOr(s.taxaFixa, 0);
     const custoUSD = preco + taxa + frete1 + frete2;
     const cot = numOr(s.cotacao, 0);
@@ -935,7 +922,7 @@
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
   /* ================= NOVA COMPRA ================= */
-  const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cumulativo: $("cumulativo"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato") };
+  const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato") };
 
   function renderSettings() {
     const s = state.settings;
@@ -943,15 +930,13 @@
     settingsEls.notaPct.value = s.notaPct;
     settingsEls.frete1.value = s.frete1;
     settingsEls.frete2.value = s.frete2;
-    settingsEls.cumulativo.checked = !!s.cumulativo;
     settingsEls.cotacao.value = s.cotacao;
     settingsEls.empresa.value = s.empresa || "";
     settingsEls.contato.value = s.contato || "";
   }
   Object.entries(settingsEls).forEach(([key, el]) => {
     el.addEventListener("input", () => {
-      if (key === "cumulativo") state.settings.cumulativo = el.checked;
-      else if (key === "empresa" || key === "contato") state.settings[key] = el.value;
+      if (key === "empresa" || key === "contato") state.settings[key] = el.value;
       else state.settings[key] = el.value === "" ? 0 : Number(el.value);
       save();
       if (key !== "empresa" && key !== "contato") renderRows();
@@ -1513,7 +1498,7 @@
           <div><span>Taxa fixa por aparelho:</span> ${fmtUSD(s.taxaFixa)}</div>
           <div><span>Valor da nota:</span> ${s.notaPct}% do lance</div>
           <div><span>Frete Miami → PY:</span> ${s.frete1}% da nota</div>
-          <div><span>Frete PY → SP:</span> ${s.frete2}% ${s.cumulativo ? "da nota + frete MIA→PY" : "da nota"}</div>
+          <div><span>Frete PY → SP:</span> ${s.frete2}% da nota</div>
         </div>
       </div>
       <div class="section"><h3>Aparelhos</h3>
