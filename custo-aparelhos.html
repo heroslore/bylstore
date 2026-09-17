@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custo de Aparelhos — Leilão + Frete</title>
+<style>
+  :root {
+    --paper: #f3f2ec;
+    --paper-line: #dedad0;
+    --ink: #202a24;
+    --ink-soft: #5c6a5f;
+    --card: #fbfaf6;
+    --amber: #b9822f;
+    --amber-soft: #f0e2c8;
+    --teal: #2f6f62;
+    --teal-soft: #dceae5;
+    --danger: #a3432f;
+    --focus: #2f6f62;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --paper: #171b18;
+      --paper-line: #2c332d;
+      --ink: #eae7de;
+      --ink-soft: #9aa79c;
+      --card: #1e2420;
+      --amber: #d7a355;
+      --amber-soft: #33291a;
+      --teal: #6fb5a3;
+      --teal-soft: #1c2e29;
+      --danger: #d97b64;
+      --focus: #6fb5a3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #171b18;
+    --paper-line: #2c332d;
+    --ink: #eae7de;
+    --ink-soft: #9aa79c;
+    --card: #1e2420;
+    --amber: #d7a355;
+    --amber-soft: #33291a;
+    --teal: #6fb5a3;
+    --teal-soft: #1c2e29;
+    --danger: #d97b64;
+    --focus: #6fb5a3;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding: 28px 16px 64px; }
+
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header.page {
+    margin-bottom: 22px;
+  }
+  header.page h1 {
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+  }
+  header.page p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    max-width: 62ch;
+    line-height: 1.5;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+
+  .card h2 {
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+    text-transform: uppercase;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 18px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+  }
+  .field .input-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--paper-line);
+    border-radius: 7px;
+    background: var(--paper);
+    overflow: hidden;
+  }
+  .field .input-group span {
+    padding: 0 9px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    border-right: 1px solid var(--paper-line);
+    background: var(--paper-line);
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+  .field .input-group span.suffix {
+    border-right: none;
+    border-left: 1px solid var(--paper-line);
+  }
+  .field input[type="number"] {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 9px 10px;
+    font-size: 0.95rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .field input[type="number"]::-webkit-outer-spin-button,
+  .field input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .field input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 14px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .toggle-row input { accent-color: var(--teal); width: 15px; height: 15px; }
+  .toggle-row label { cursor: pointer; }
+
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1180px;
+    font-size: 0.88rem;
+  }
+  thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    padding: 0 8px 8px;
+    border-bottom: 1px solid var(--paper-line);
+    white-space: nowrap;
+  }
+  thead th.num, tbody td.num { text-align: right; }
+  tbody td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--paper-line);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody input[type="text"], tbody input[type="number"] {
+    width: 100%;
+    min-width: 64px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  tbody input:hover { border-color: var(--paper-line); }
+  tbody input:focus-visible {
+    outline: none;
+    border-color: var(--focus);
+    background: var(--paper);
+  }
+  tbody input[type="text"] { min-width: 130px; }
+  .computed { color: var(--ink-soft); }
+  .computed.total { color: var(--amber); font-weight: 650; }
+  .lucro-pos { color: var(--teal); font-weight: 600; }
+  .lucro-neg { color: var(--danger); font-weight: 600; }
+
+  .row-remove {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 5px;
+  }
+  .row-remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+  .row-remove:focus-visible { outline: 2px solid var(--focus); }
+
+  tfoot td {
+    padding: 10px 8px 4px;
+    font-weight: 650;
+    border-top: 2px solid var(--paper-line);
+    font-variant-numeric: tabular-nums;
+  }
+  tfoot td.num.total { color: var(--amber); font-size: 0.98rem; }
+
+  .add-row-btn {
+    margin-top: 12px;
+    border: 1px dashed var(--paper-line);
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 9px 14px;
+    border-radius: 7px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: 100%;
+  }
+  .add-row-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .add-row-btn:focus-visible { outline: 2px solid var(--focus); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 16px;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+  }
+  .legend b { color: var(--ink); font-weight: 600; }
+
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .summary-item .label {
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .summary-item .value {
+    font-size: 1.28rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary-item.highlight .value { color: var(--amber); }
+  .summary-item .sub { font-size: 0.76rem; color: var(--ink-soft); margin-top: 2px; }
+
+  footer.note {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    max-width: 68ch;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <h1>Custo real dos aparelhos</h1>
+    <p>Preço arrematado no leilão, taxa fixa e frete Miami → PY → SP calculado sobre o valor declarado na nota — não sobre o valor real pago.</p>
+  </header>
+
+  <section class="card">
+    <h2>Parâmetros gerais</h2>
+    <div class="settings-grid">
+      <div class="field">
+        <label for="taxaFixa">Taxa fixa por aparelho</label>
+        <div class="input-group">
+          <span>US$</span>
+          <input type="number" id="taxaFixa" value="17" step="0.5" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label for="notaPct">% da nota (valor declarado)</label>
+        <div class="input-group">
+          <input type="number" id="notaPct" value="70" step="1" min="0" max="100">
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="frete1">Frete Miami → PY</label>
+        <div class="input-group">
+          <input type="number" id="frete1" value="7.5" step="0.1" min="0">
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="frete2">Frete PY → SP</label>
+        <div class="input-group">
+          <input type="number" id="frete2" value="8" step="0.1" min="0">
+          <span class="suffix">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="cotacao">Cotação do dólar</label>
+        <div class="input-group">
+          <span>R$</span>
+          <input type="number" id="cotacao" value="5.40" step="0.01" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="cumulativo">
+      <label for="cumulativo">Frete PY → SP incide sobre nota + frete Miami-PY (em vez de só sobre a nota)</label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Aparelhos</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Modelo</th>
+            <th class="num">Preço leilão (un.)</th>
+            <th class="num">Qtd</th>
+            <th class="num">% nota</th>
+            <th class="num">Valor da nota</th>
+            <th class="num">Frete MIA→PY</th>
+            <th class="num">Frete PY→SP</th>
+            <th class="num">Custo unitário US$</th>
+            <th class="num">Custo unitário R$</th>
+            <th class="num">Preço venda (R$)</th>
+            <th class="num">Lucro unit. (R$)</th>
+            <th class="num">Margem</th>
+            <th class="num">Lucro linha (R$)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td class="num" id="ftPreco">—</td>
+            <td class="num" id="ftQtd">—</td>
+            <td></td>
+            <td class="num" id="ftNota">—</td>
+            <td class="num" id="ftF1">—</td>
+            <td class="num" id="ftF2">—</td>
+            <td class="num" id="ftCusto">—</td>
+            <td class="num total" id="ftCustoBRL">—</td>
+            <td class="num" id="ftVenda">—</td>
+            <td></td>
+            <td class="num" id="ftMargem">—</td>
+            <td class="num total" id="ftLucro">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <button class="add-row-btn" id="addRow" type="button">+ adicionar aparelho</button>
+
+    <div class="legend">
+      <span><b>% nota</b> — em branco usa o % geral acima</span>
+      <span><b>Custo unitário</b> — preço de compra final de cada aparelho, já em SP (leilão + taxa fixa + frete)</span>
+      <span><b>Lucro unit.</b> = preço de venda − custo unitário R$</span>
+      <span><b>Lucro linha</b> = lucro unitário × qtd</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Resumo</h2>
+    <div class="summary-strip">
+      <div class="summary-item">
+        <div class="label">Aparelhos</div>
+        <div class="value" id="sumCount">0</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Custo total (compra)</div>
+        <div class="value" id="sumPreco">R$ 0,00</div>
+        <div class="sub" id="sumPrecoSub">—</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Venda total</div>
+        <div class="value" id="sumVenda">R$ 0,00</div>
+        <div class="sub">soma dos preços de venda</div>
+      </div>
+      <div class="summary-item highlight">
+        <div class="label">Lucro total</div>
+        <div class="value" id="sumCusto">R$ 0,00</div>
+        <div class="sub" id="sumCustoUnit">—</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="note">
+    Os dados ficam salvos apenas neste navegador. O custo unitário é o preço de compra final do aparelho já em SP (leilão + taxa fixa + frete calculado sobre a nota). O lucro é a diferença entre o preço de venda que você define e esse custo unitário. A cotação do dólar é só pra conversão de referência.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = "custo-aparelhos-state-v1";
+  const $ = (id) => document.getElementById(id);
+
+  const settingsEls = {
+    taxaFixa: $("taxaFixa"),
+    notaPct: $("notaPct"),
+    frete1: $("frete1"),
+    frete2: $("frete2"),
+    cumulativo: $("cumulativo"),
+    cotacao: $("cotacao"),
+  };
+
+  let state = {
+    settings: { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cumulativo: false, cotacao: 5.40 },
+    rows: [
+      { modelo: "iPhone 12 128GB White DLS B+", preco: 163, notaPct: 90, qty: 3 },
+      { modelo: "iPhone 13 128GB C", preco: 195, notaPct: 90, qty: 4 },
+      { modelo: "iPhone 14 128GB C", preco: 220, notaPct: 90, qty: 3 },
+    ],
+  };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.settings && Array.isArray(parsed.rows)) state = parsed;
+      }
+    } catch (e) { /* ignore corrupt storage */ }
+  }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function fmtUSD(n) {
+    if (!isFinite(n)) return "—";
+    return "US$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtBRL(n) {
+    if (!isFinite(n)) return "—";
+    return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtPct(n) {
+    if (n === null || !isFinite(n)) return "—";
+    return n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  }
+
+  function lucroClass(n) {
+    if (!isFinite(n)) return "computed";
+    return "computed " + (n < 0 ? "lucro-neg" : "lucro-pos");
+  }
+
+  function computeRow(row) {
+    const s = state.settings;
+    const preco = Number(row.preco) || 0;
+    const notaPct = row.notaPct === null || row.notaPct === "" || row.notaPct === undefined
+      ? Number(s.notaPct) || 0
+      : Number(row.notaPct) || 0;
+    const valorNota = preco * (notaPct / 100);
+    const frete1 = valorNota * ((Number(s.frete1) || 0) / 100);
+    const base2 = s.cumulativo ? valorNota + frete1 : valorNota;
+    const frete2 = base2 * ((Number(s.frete2) || 0) / 100);
+    const freteTotal = frete1 + frete2;
+    const custoTotal = preco + (Number(s.taxaFixa) || 0) + freteTotal;
+    const cotacao = Number(s.cotacao) || 0;
+    const custoTotalBRL = custoTotal * cotacao;
+    const qty = Number(row.qty) || 1;
+    const vendaBRL = row.vendaBRL === null || row.vendaBRL === "" || row.vendaBRL === undefined ? 0 : Number(row.vendaBRL) || 0;
+    const lucroUnitBRL = vendaBRL - custoTotalBRL;
+    const margemPct = vendaBRL > 0 ? (lucroUnitBRL / vendaBRL) * 100 : null;
+    const lineCusto = custoTotal * qty;
+    const lineCustoBRL = custoTotalBRL * qty;
+    const linePreco = preco * qty;
+    const lineValorNota = valorNota * qty;
+    const lineFrete1 = frete1 * qty;
+    const lineFrete2 = frete2 * qty;
+    const lineVendaBRL = vendaBRL * qty;
+    const lineLucroBRL = lucroUnitBRL * qty;
+    return { preco, notaPct, valorNota, frete1, frete2, freteTotal, custoTotal, custoTotalBRL, qty,
+      vendaBRL, lucroUnitBRL, margemPct,
+      lineCusto, lineCustoBRL, linePreco, lineValorNota, lineFrete1, lineFrete2, lineVendaBRL, lineLucroBRL };
+  }
+
+  function renderSettings() {
+    settingsEls.taxaFixa.value = state.settings.taxaFixa;
+    settingsEls.notaPct.value = state.settings.notaPct;
+    settingsEls.frete1.value = state.settings.frete1;
+    settingsEls.frete2.value = state.settings.frete2;
+    settingsEls.cumulativo.checked = !!state.settings.cumulativo;
+    settingsEls.cotacao.value = state.settings.cotacao ?? 5.40;
+  }
+
+  function renderRows() {
+    const tbody = $("rows");
+    tbody.innerHTML = "";
+    state.rows.forEach((row, idx) => {
+      const c = computeRow(row);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" data-idx="${idx}" data-field="modelo" value="${row.modelo ? escapeAttr(row.modelo) : ""}" placeholder="ex: iPhone 15 128GB"></td>
+        <td class="num"><input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0.00" style="text-align:right"></td>
+        <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}" style="text-align:right"></td>
+        <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${state.settings.notaPct}" style="text-align:right"></td>
+        <td class="num computed">${fmtUSD(c.valorNota)}</td>
+        <td class="num computed">${fmtUSD(c.frete1)}</td>
+        <td class="num computed">${fmtUSD(c.frete2)}</td>
+        <td class="num computed total">${fmtUSD(c.custoTotal)}</td>
+        <td class="num computed total">${fmtBRL(c.custoTotalBRL)}</td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="vendaBRL" value="${row.vendaBRL ?? ""}" placeholder="0,00" style="text-align:right"></td>
+        <td class="num ${lucroClass(c.lucroUnitBRL)}">${row.vendaBRL ? fmtBRL(c.lucroUnitBRL) : "—"}</td>
+        <td class="num ${lucroClass(c.lucroUnitBRL)}">${fmtPct(c.margemPct)}</td>
+        <td class="num ${lucroClass(c.lineLucroBRL)}">${row.vendaBRL ? fmtBRL(c.lineLucroBRL) : "—"}</td>
+        <td><button class="row-remove" type="button" data-idx="${idx}" aria-label="Remover aparelho" title="Remover">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("input", onFieldInput);
+    });
+    tbody.querySelectorAll(".row-remove").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.idx);
+        state.rows.splice(idx, 1);
+        save();
+        renderAll();
+      });
+    });
+
+    renderTotals();
+  }
+
+  function escapeAttr(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
+  function onFieldInput(e) {
+    const idx = Number(e.target.dataset.idx);
+    const field = e.target.dataset.field;
+    let val = e.target.value;
+    if (field === "preco") {
+      state.rows[idx].preco = val === "" ? 0 : Number(val);
+    } else if (field === "qty") {
+      state.rows[idx].qty = val === "" ? 1 : Number(val);
+    } else if (field === "vendaBRL") {
+      state.rows[idx].vendaBRL = val === "" ? null : Number(val);
+    } else if (field === "notaPct") {
+      state.rows[idx].notaPct = val === "" ? null : Number(val);
+    } else {
+      state.rows[idx].modelo = val;
+    }
+    save();
+    renderRowComputed(idx);
+    renderTotals();
+  }
+
+  function renderRowComputed(idx) {
+    const row = state.rows[idx];
+    const c = computeRow(row);
+    const tr = $("rows").children[idx];
+    if (!tr) return;
+    const cells = tr.querySelectorAll("td.computed");
+    cells[0].textContent = fmtUSD(c.valorNota);
+    cells[1].textContent = fmtUSD(c.frete1);
+    cells[2].textContent = fmtUSD(c.frete2);
+    cells[3].textContent = fmtUSD(c.custoTotal);
+    cells[4].textContent = fmtBRL(c.custoTotalBRL);
+    cells[5].textContent = row.vendaBRL ? fmtBRL(c.lucroUnitBRL) : "—";
+    cells[5].className = "num " + lucroClass(c.lucroUnitBRL);
+    cells[6].textContent = fmtPct(c.margemPct);
+    cells[6].className = "num " + lucroClass(c.lucroUnitBRL);
+    cells[7].textContent = row.vendaBRL ? fmtBRL(c.lineLucroBRL) : "—";
+    cells[7].className = "num " + lucroClass(c.lineLucroBRL);
+  }
+
+  function renderTotals() {
+    let sPreco = 0, sQty = 0, sNota = 0, sF1 = 0, sF2 = 0, sCustoUSD = 0, sCustoBRL = 0, sVendaBRL = 0, sLucroBRL = 0;
+    state.rows.forEach((row) => {
+      const c = computeRow(row);
+      sPreco += c.linePreco; sQty += c.qty; sNota += c.lineValorNota; sF1 += c.lineFrete1; sF2 += c.lineFrete2;
+      sCustoUSD += c.lineCusto; sCustoBRL += c.lineCustoBRL;
+      sVendaBRL += c.lineVendaBRL; sLucroBRL += c.lineLucroBRL;
+    });
+    const margemTotal = sVendaBRL > 0 ? (sLucroBRL / sVendaBRL) * 100 : null;
+
+    $("ftPreco").textContent = fmtUSD(sPreco);
+    $("ftQtd").textContent = sQty;
+    $("ftNota").textContent = fmtUSD(sNota);
+    $("ftF1").textContent = fmtUSD(sF1);
+    $("ftF2").textContent = fmtUSD(sF2);
+    $("ftCusto").textContent = fmtUSD(sCustoUSD);
+    $("ftCustoBRL").textContent = fmtBRL(sCustoBRL);
+    $("ftVenda").textContent = sVendaBRL ? fmtBRL(sVendaBRL) : "—";
+    $("ftMargem").textContent = fmtPct(margemTotal);
+    $("ftLucro").textContent = sVendaBRL ? fmtBRL(sLucroBRL) : "—";
+
+    $("sumCount").textContent = sQty;
+    $("sumPreco").textContent = fmtBRL(sCustoBRL);
+    $("sumPrecoSub").textContent = fmtUSD(sCustoUSD) + " landed em SP";
+    $("sumVenda").textContent = fmtBRL(sVendaBRL);
+    $("sumCusto").textContent = fmtBRL(sLucroBRL);
+    $("sumCustoUnit").textContent = sVendaBRL
+      ? "margem de " + fmtPct(margemTotal) + " sobre a venda"
+      : "defina o preço de venda para calcular";
+  }
+
+  function renderAll() {
+    renderSettings();
+    renderRows();
+  }
+
+  Object.entries(settingsEls).forEach(([key, el]) => {
+    el.addEventListener("input", () => {
+      if (key === "cumulativo") {
+        state.settings.cumulativo = el.checked;
+      } else {
+        state.settings[key] = el.value === "" ? 0 : Number(el.value);
+      }
+      save();
+      renderRows();
+    });
+  });
+
+  $("addRow").addEventListener("click", () => {
+    state.rows.push({ modelo: "", preco: 0, notaPct: null, qty: 1, vendaBRL: null });
+    save();
+    renderAll();
+  });
+
+  load();
+  renderAll();
+})();
+</script>
+</body>
+</html>
