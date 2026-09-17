@@ -1426,9 +1426,9 @@
     }
     const label = (k) => byDay ? fmtDate(k) : MESES[Number(k.slice(5, 7)) - 1] + "/" + k.slice(0, 4);
     $("breakdownTable").innerHTML = `<table>
-      <thead><tr><th>${byDay ? "Dia" : "Mês"}</th><th class="num">Vendas</th><th class="num">Aparelhos</th><th class="num">Vendido</th><th class="num">Custo</th><th class="num">Lucro</th><th class="num">Margem</th></tr></thead>
+      <thead><tr><th>${byDay ? "Dia" : "Mês"}</th><th class="num">Lucro</th><th class="num">Margem</th><th class="num">Vendido</th><th class="num">Custo</th><th class="num">Aparelhos</th><th class="num">Vendas</th></tr></thead>
       <tbody>${keys.map((k) => { const g = groups[k]; const l = g.venda - g.custo;
-        return `<tr><td>${label(k)}</td><td class="num">${g.n}</td><td class="num">${g.qty}</td><td class="num">${fmtBRL(g.venda)}</td><td class="num computed">${fmtBRL(g.custo)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l)}</td><td class="num">${fmtPct(g.venda > 0 ? l / g.venda * 100 : null)}</td></tr>`; }).join("")}</tbody>
+        return `<tr><td>${label(k)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l)}</td><td class="num">${fmtPct(g.venda > 0 ? l / g.venda * 100 : null)}</td><td class="num">${fmtBRL(g.venda)}</td><td class="num computed">${fmtBRL(g.custo)}</td><td class="num">${g.qty}</td><td class="num">${g.n}</td></tr>`; }).join("")}</tbody>
     </table>`;
   }
 
