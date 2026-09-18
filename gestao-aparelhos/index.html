@@ -300,6 +300,8 @@
   }
   tbody input[type="text"] { min-width: 210px; }
   tbody td.num input { text-align: right; }
+  table.compact tbody input[type="text"] { min-width: 150px; }
+  table.compact tbody td.num input { width: 96px; min-width: 96px; }
   .computed { color: var(--ink-soft); }
   .computed.strong { color: var(--ink); font-weight: 600; }
   .computed.amber { color: var(--amber); font-weight: 650; }
@@ -674,8 +676,8 @@
           <span class="badge neutral" id="precosCount">0 modelos</span>
         </div>
         <div class="table-scroll">
-          <table>
-            <thead><tr><th>Modelo</th><th class="num">Preço de venda (R$)</th><th></th></tr></thead>
+          <table class="compact">
+            <thead><tr><th>Modelo</th><th class="num">Venda (R$)</th><th></th></tr></thead>
             <tbody id="precosRows"></tbody>
           </table>
         </div>
