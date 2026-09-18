@@ -487,6 +487,16 @@
   @media (max-width: 640px) { .filter-bar select { margin-left: 0; width: 100%; } }
   .period-note { font-size: 0.8rem; color: var(--ink-soft); margin: -6px 0 14px; }
 
+  /* ---------- calculadora ---------- */
+  .verdict { font-size: 0.72rem; padding: 2px 7px; border-radius: 99px; font-weight: 600; white-space: nowrap; }
+  .verdict.ok { background: var(--teal-soft); color: var(--teal); }
+  .verdict.bad { background: var(--danger-soft); color: var(--danger); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--paper); }
+  .seg button { border: none; background: transparent; color: var(--ink-soft); padding: 8px 12px; cursor: pointer; font-size: 0.85rem; }
+  .seg button.active { background: var(--amber-soft); color: var(--ink); font-weight: 600; }
+  .seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .field textarea.paste { min-height: 90px; font-size: 0.85rem; }
+
   /* ---------- sync indicator ---------- */
   .sync {
     font-size: 0.74rem; color: var(--ink-soft);
@@ -570,6 +580,7 @@
     <div class="wrap topbar-inner">
       <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos <span class="sync" id="syncDot" title="Sincronização" hidden>nuvem</span></div>
       <nav class="tabs" role="tablist">
+        <button class="tab" type="button" data-tab="calc">Calculadora</button>
         <button class="tab active" type="button" data-tab="compra" id="tabBtnCompra">Nova compra</button>
         <button class="tab" type="button" data-tab="compras">Compras <span class="pill" id="pillCompras">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
@@ -585,6 +596,102 @@
       <span class="spacer"></span>
       <button class="btn small amber" type="button" id="btnBannerBackup">Fazer backup agora</button>
     </div>
+
+    <!-- ================= CALCULADORA ================= -->
+    <section id="tab-calc" class="tabpanel">
+      <p class="page-intro">Confira se um lance vale a pena antes de arrematar. O custo em SP usa os mesmos parâmetros da compra. O lance máximo é o maior valor que ainda entrega o lucro que você quer.</p>
+
+      <div class="card">
+        <h2>Meta e parâmetros</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="calcMargem">Lucro desejado</label>
+            <div class="input-group"><input type="number" id="calcMargem" step="1" min="0" max="95"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label>Calculado sobre</label>
+            <div class="seg" id="calcBase">
+              <button type="button" data-base="venda">a venda</button>
+              <button type="button" data-base="custo">o custo</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="calcCotacao">Cotação do dólar</label>
+            <div class="input-group"><span>R$</span><input type="number" id="calcCotacao" step="0.01" min="0" data-setting="cotacao"></div>
+          </div>
+          <div class="field">
+            <label for="calcNotaPct">Valor da nota (% do lance)</label>
+            <div class="input-group"><input type="number" id="calcNotaPct" step="1" min="0" max="100" data-setting="notaPct"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="calcFrete1">Frete Miami → PY</label>
+            <div class="input-group"><input type="number" id="calcFrete1" step="0.1" min="0" data-setting="frete1"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="calcFrete2">Frete PY → SP</label>
+            <div class="input-group"><input type="number" id="calcFrete2" step="0.1" min="0" data-setting="frete2"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label for="calcTaxaFixa">Taxa fixa por aparelho</label>
+            <div class="input-group"><span>US$</span><input type="number" id="calcTaxaFixa" step="0.5" min="0" data-setting="taxaFixa"></div>
+          </div>
+        </div>
+        <p class="hint" id="calcHint"></p>
+      </div>
+
+      <div class="card">
+        <h2>Análise de lances</h2>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th>Aparelho</th>
+                <th class="num">Venda (R$)</th>
+                <th class="num">Lance (US$)</th>
+                <th class="num">Custo em SP</th>
+                <th class="num">Lucro</th>
+                <th class="num">Margem</th>
+                <th class="num">Lance máx.</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="calcRows"></tbody>
+          </table>
+        </div>
+        <button class="btn dashed" id="addCalcRow" type="button">+ adicionar aparelho</button>
+        <div class="actions">
+          <button class="btn" type="button" id="btnCalcParaCompra">Levar para Nova compra</button>
+          <span class="spacer"></span>
+          <button class="btn ghost danger" type="button" id="btnCalcLimpar">Limpar análise</button>
+        </div>
+        <p class="hint"><b>Lance máx.</b> é o maior lance que ainda atinge o lucro desejado. Escolha o aparelho da lista para preencher o preço de venda, ou digite um preço direto.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Lista de preços de venda</h2>
+          <span class="badge neutral" id="precosCount">0 modelos</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Modelo</th><th class="num">Preço de venda (R$)</th><th></th></tr></thead>
+            <tbody id="precosRows"></tbody>
+          </table>
+        </div>
+        <button class="btn dashed" id="addPreco" type="button">+ adicionar modelo</button>
+        <div style="height:14px"></div>
+        <div class="field">
+          <label for="precosPaste">Colar lista (uma linha por modelo, com o preço no fim, ex: <b>iPhone 14 128GB 1800</b>)</label>
+          <textarea id="precosPaste" class="paste" placeholder="iPhone 13 128GB  1650&#10;iPhone 14 Pro 128GB  2600"></textarea>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn" type="button" id="btnPrecosImportar">Importar linhas</button>
+          <span class="spacer"></span>
+          <button class="btn ghost danger" type="button" id="btnPrecosLimpar">Apagar lista</button>
+        </div>
+      </div>
+    </section>
 
     <!-- ================= NOVA COMPRA ================= -->
     <section id="tab-compra" class="tabpanel active">
@@ -927,12 +1034,21 @@
   const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()] });
   const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [] });
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
+  const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
+  const newCalcRow = () => ({ id: uid(), precoId: null, modelo: "", venda: null, lance: null });
+  const PRECOS_EXEMPLO = [
+    ["iPhone 13 128GB", 1650], ["iPhone 13 Pro Max 128GB", 2500], ["iPhone 13 Pro Max 256GB", 2650],
+    ["iPhone 14 128GB", 1800], ["iPhone 14 Pro 128GB", 2600], ["iPhone 14 Pro Max 256GB", 3250],
+    ["iPhone 15 128GB", 2500], ["iPhone 15 Pro Max 256GB", 3750], ["iPhone 16 128GB", 3300], ["iPhone 16 Pro Max 256GB", 4750],
+  ];
 
   let state = {
     settings: { ...DEFAULT_SETTINGS },
     draft: newDraft(),
     vendaDraft: newVendaDraft(),
     filtro: newFiltro(),
+    calc: newCalc(),
+    precos: [],
     ultimoBackup: null,
     updatedAt: 0,
     compras: [],
@@ -954,6 +1070,8 @@
             draft: p.draft && Array.isArray(p.draft.rows) ? p.draft : newDraft(),
             vendaDraft: p.vendaDraft && Array.isArray(p.vendaDraft.itens) ? p.vendaDraft : newVendaDraft(),
             filtro: p.filtro && p.filtro.periodo ? { ...newFiltro(), ...p.filtro } : newFiltro(),
+            calc: p.calc && Array.isArray(p.calc.rows) ? { ...newCalc(), ...p.calc } : newCalc(),
+            precos: Array.isArray(p.precos) ? p.precos : [],
             ultimoBackup: p.ultimoBackup || null,
             updatedAt: p.updatedAt || 0,
             compras: Array.isArray(p.compras) ? p.compras : [],
@@ -974,6 +1092,8 @@
         return;
       }
       // first visit: example rows so the screen is not empty
+      state.precos = PRECOS_EXEMPLO.map(([modelo, preco]) => ({ id: uid(), modelo, preco }));
+      state.calc.rows = [{ id: uid(), precoId: state.precos[4].id, modelo: state.precos[4].modelo, venda: 2600, lance: 359 }];
       state.draft.rows = [
         { id: uid(), modelo: "iPhone 12 128GB White DLS B+", preco: 163, notaPct: 90, qty: 3 },
         { id: uid(), modelo: "iPhone 13 128GB C", preco: 195, notaPct: 90, qty: 4 },
@@ -1091,13 +1211,18 @@
     settingsEls.cotacao.value = s.cotacao;
     settingsEls.empresa.value = s.empresa || "";
     settingsEls.contato.value = s.contato || "";
+    document.querySelectorAll("[data-setting]").forEach((el) => { if (document.activeElement !== el) el.value = s[el.dataset.setting]; });
   }
+  document.querySelectorAll("[data-setting]").forEach((el) => el.addEventListener("input", () => {
+    state.settings[el.dataset.setting] = el.value === "" ? 0 : Number(el.value);
+    save(); renderSettings(); renderRows(); renderCalc();
+  }));
   Object.entries(settingsEls).forEach(([key, el]) => {
     el.addEventListener("input", () => {
       if (key === "empresa" || key === "contato") state.settings[key] = el.value;
       else state.settings[key] = el.value === "" ? 0 : Number(el.value);
       save();
-      if (key !== "empresa" && key !== "contato") renderRows();
+      if (key !== "empresa" && key !== "contato") { renderSettings(); renderRows(); renderCalc(); }
     });
   });
 
@@ -1234,6 +1359,179 @@
     if (!rows.length) { toast("Preencha pelo menos um aparelho para gerar o PDF."); return; }
     const nome = (state.draft.nome || "").trim() || ("Compra " + fmtDate(state.draft.data));
     printCompra({ nome, data: state.draft.data, settings: pickSnap(state.settings), rows });
+  });
+
+  /* ================= CALCULADORA ================= */
+  function calcCusto(lance) { return calcRow({ preco: lance, notaPct: null, qty: 1 }, state.settings); }
+  function lanceMaximo(venda) {
+    const s = state.settings, m = numOr(state.calc.margem, 0) / 100;
+    const cot = numOr(s.cotacao, 0);
+    if (!(venda > 0) || !(cot > 0) || m >= 1) return null;
+    const custoMaxBRL = state.calc.base === "custo" ? venda / (1 + m) : venda * (1 - m);
+    const k = 1 + numOr(s.notaPct, 0) / 100 * (numOr(s.frete1, 0) + numOr(s.frete2, 0)) / 100;
+    const lance = (custoMaxBRL / cot - numOr(s.taxaFixa, 0)) / k;
+    return lance > 0 ? lance : 0;
+  }
+  function margemDe(venda, custo) {
+    if (!(venda > 0) || !(custo > 0)) return null;
+    return state.calc.base === "custo" ? (venda - custo) / custo * 100 : (venda - custo) / venda * 100;
+  }
+  function precoOptions(sel) {
+    return `<option value="">— digitar —</option>` + state.precos.map((p) => `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.modelo)} · ${fmtBRL(p.preco)}</option>`).join("");
+  }
+  function renderCalc() {
+    const c = state.calc;
+    $("calcMargem").value = c.margem;
+    document.querySelectorAll("#calcBase button").forEach((b) => b.classList.toggle("active", b.dataset.base === c.base));
+    const s = state.settings;
+    $("calcHint").innerHTML = `Custo em SP = lance + US$ ${numOr(s.taxaFixa, 0)} + ${(numOr(s.frete1, 0) + numOr(s.frete2, 0)).toLocaleString("pt-BR")}% sobre ${numOr(s.notaPct, 0)}% do lance, convertido a R$ ${numOr(s.cotacao, 0).toLocaleString("pt-BR", nf2)}. Meta: <b>${c.margem}% ${c.base === "custo" ? "sobre o custo" : "sobre a venda"}</b>.`;
+
+    const tbody = $("calcRows");
+    tbody.innerHTML = "";
+    c.rows.forEach((r, idx) => {
+      const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
+      const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+      const lance = numOr(r.lance, 0);
+      const k = lance > 0 ? calcCusto(lance) : null;
+      const custo = k ? k.custoBRL : 0;
+      const lucro = venda > 0 && k ? venda - custo : null;
+      const mg = venda > 0 && k ? margemDe(venda, custo) : null;
+      const max = lanceMaximo(venda);
+      const ok = mg !== null && mg >= numOr(c.margem, 0);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo" style="min-width:140px;margin-top:${state.precos.length ? 4 : 0}px">` : ""}</td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${p ? p.preco : (r.venda ?? "")}" ${p ? "disabled" : ""} placeholder="R$"></td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="lance" value="${r.lance ?? ""}" placeholder="US$"></td>
+        <td class="num computed strong">${k ? fmtBRL(custo) : "—"}</td>
+        <td class="num computed ${lucro === null ? "" : lucro < 0 ? "neg" : "pos"}">${lucro === null ? "—" : fmtBRL(lucro)}</td>
+        <td class="num computed ${mg === null ? "" : ok ? "pos" : "neg"}">${fmtPct(mg)}</td>
+        <td class="num computed amber">${max === null ? "—" : fmtUSD(max)}</td>
+        <td>${mg === null ? "" : `<span class="verdict ${ok ? "ok" : "bad"}">${ok ? "bom" : "abaixo da meta"}</span>`}</td>
+        <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover" title="Remover">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+    if (!c.rows.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="9" class="muted" style="white-space:normal">Adicione um aparelho, escolha o preço de venda e digite o lance para ver se compensa.</td>`;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", (e) => {
+      const r = c.rows[Number(e.target.dataset.idx)];
+      const p = state.precos.find((x) => x.id === e.target.value);
+      r.precoId = p ? p.id : null;
+      if (p) { r.modelo = p.modelo; r.venda = p.preco; }
+      save(); renderCalc();
+    }));
+    tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", (e) => {
+      const r = c.rows[Number(e.target.dataset.idx)];
+      const f = e.target.dataset.field, v = e.target.value;
+      if (f === "venda") r.venda = v === "" ? null : Number(v);
+      else if (f === "lance") r.lance = v === "" ? null : Number(v);
+      else r.modelo = v;
+      save(); renderCalcRowComputed(Number(e.target.dataset.idx));
+    }));
+    tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => { c.rows.splice(Number(b.dataset.remove), 1); save(); renderCalc(); }));
+  }
+  function renderCalcRowComputed(idx) {
+    const c = state.calc, r = c.rows[idx];
+    const tr = $("calcRows").children[idx];
+    if (!r || !tr) return;
+    const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
+    const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+    const lance = numOr(r.lance, 0);
+    const k = lance > 0 ? calcCusto(lance) : null;
+    const custo = k ? k.custoBRL : 0;
+    const lucro = venda > 0 && k ? venda - custo : null;
+    const mg = venda > 0 && k ? margemDe(venda, custo) : null;
+    const max = lanceMaximo(venda);
+    const ok = mg !== null && mg >= numOr(c.margem, 0);
+    const cells = tr.querySelectorAll("td.computed");
+    cells[0].textContent = k ? fmtBRL(custo) : "—";
+    cells[1].textContent = lucro === null ? "—" : fmtBRL(lucro);
+    cells[1].className = "num computed " + (lucro === null ? "" : lucro < 0 ? "neg" : "pos");
+    cells[2].textContent = fmtPct(mg);
+    cells[2].className = "num computed " + (mg === null ? "" : ok ? "pos" : "neg");
+    cells[3].textContent = max === null ? "—" : fmtUSD(max);
+    tr.children[7].innerHTML = mg === null ? "" : `<span class="verdict ${ok ? "ok" : "bad"}">${ok ? "bom" : "abaixo da meta"}</span>`;
+  }
+  $("calcMargem").addEventListener("input", (e) => { state.calc.margem = e.target.value === "" ? 0 : Number(e.target.value); save(); renderCalc(); });
+  document.querySelectorAll("#calcBase button").forEach((b) => b.addEventListener("click", () => { state.calc.base = b.dataset.base; save(); renderCalc(); }));
+  $("addCalcRow").addEventListener("click", () => {
+    state.calc.rows.push(newCalcRow()); save(); renderCalc();
+    const last = $("calcRows").lastElementChild; const f = last && last.querySelector("select, input"); if (f) f.focus();
+  });
+  $("btnCalcLimpar").addEventListener("click", () => { state.calc.rows = []; save(); renderCalc(); });
+  $("btnCalcParaCompra").addEventListener("click", () => {
+    const rows = state.calc.rows.filter((r) => numOr(r.lance, 0) > 0).map((r) => {
+      const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
+      return { id: uid(), modelo: p ? p.modelo : (r.modelo || "").trim(), preco: numOr(r.lance, 0), notaPct: null, qty: 1 };
+    }).filter((r) => r.modelo);
+    if (!rows.length) { toast("Preencha modelo e lance nos aparelhos que quer levar."); return; }
+    const existing = validRows(state.draft.rows);
+    if (existing.length && !confirm(`Adicionar ${rows.length} aparelho(s) à compra em andamento?`)) return;
+    state.draft.rows = existing.concat(rows);
+    save(); renderAll(); showTab("compra"); toast(rows.length + " aparelho(s) adicionado(s) à compra.");
+  });
+
+  /* ---- lista de preços ---- */
+  function renderPrecos() {
+    const tbody = $("precosRows");
+    tbody.innerHTML = "";
+    $("precosCount").textContent = state.precos.length + (state.precos.length === 1 ? " modelo" : " modelos");
+    state.precos.forEach((p, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" data-idx="${idx}" data-field="modelo" value="${esc(p.modelo)}" placeholder="ex: iPhone 14 128GB"></td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="preco" value="${p.preco ?? ""}" placeholder="R$"></td>
+        <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover" title="Remover">✕</button></td>`;
+      tbody.appendChild(tr);
+    });
+    if (!state.precos.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="3" class="muted" style="white-space:normal">Nenhum modelo. Adicione um a um ou cole a lista abaixo.</td>`;
+      tbody.appendChild(tr);
+    }
+    tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", (e) => {
+      const p = state.precos[Number(e.target.dataset.idx)];
+      if (e.target.dataset.field === "preco") p.preco = e.target.value === "" ? 0 : Number(e.target.value);
+      else p.modelo = e.target.value;
+      save(); renderCalc();
+    }));
+    tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+      const p = state.precos[Number(b.dataset.remove)];
+      state.calc.rows.forEach((r) => { if (r.precoId === p.id) { r.precoId = null; r.modelo = p.modelo; r.venda = p.preco; } });
+      state.precos.splice(Number(b.dataset.remove), 1); save(); renderPrecos(); renderCalc();
+    }));
+  }
+  function importarPrecos(text) {
+    let n = 0, upd = 0;
+    text.split(/\r?\n/).forEach((line) => {
+      const l = line.replace(/R\$/gi, "").replace(/[💵💸🔋🇺🇸🇦🇪•*]/g, "").trim();
+      const m = l.match(/^(.*?)[\s:\-–—]+([\d.]+(?:,\d{1,2})?)\s*$/);
+      if (!m) return;
+      const modelo = m[1].replace(/[\s:\-–—]+$/, "").trim();
+      const preco = Number(m[2].replace(/\./g, "").replace(",", "."));
+      if (!modelo || !(preco > 0)) return;
+      const ex = state.precos.find((p) => p.modelo.trim().toLowerCase() === modelo.toLowerCase());
+      if (ex) { ex.preco = preco; upd++; } else { state.precos.push({ id: uid(), modelo, preco }); n++; }
+    });
+    return { n, upd };
+  }
+  $("addPreco").addEventListener("click", () => {
+    state.precos.push({ id: uid(), modelo: "", preco: 0 }); save(); renderPrecos(); renderCalc();
+    const last = $("precosRows").lastElementChild; const f = last && last.querySelector("input"); if (f) f.focus();
+  });
+  $("btnPrecosImportar").addEventListener("click", () => {
+    const r = importarPrecos($("precosPaste").value);
+    if (!r.n && !r.upd) { toast("Nenhuma linha reconhecida. Use: modelo e preço no fim da linha."); return; }
+    $("precosPaste").value = ""; save(); renderPrecos(); renderCalc();
+    toast(`${r.n} modelo(s) adicionado(s)` + (r.upd ? `, ${r.upd} atualizado(s).` : "."));
+  });
+  $("btnPrecosLimpar").addEventListener("click", () => {
+    if (!confirm("Apagar toda a lista de preços?")) return;
+    state.calc.rows.forEach((r) => { const p = state.precos.find((x) => x.id === r.precoId); if (p) { r.precoId = null; r.modelo = p.modelo; r.venda = p.preco; } });
+    state.precos = []; save(); renderPrecos(); renderCalc();
   });
 
   /* ================= COMPRAS ================= */
@@ -1825,6 +2123,8 @@
           draft: d.draft && Array.isArray(d.draft.rows) ? d.draft : newDraft(),
           vendaDraft: d.vendaDraft && Array.isArray(d.vendaDraft.itens) ? d.vendaDraft : newVendaDraft(),
           filtro: d.filtro && d.filtro.periodo ? { ...newFiltro(), ...d.filtro } : newFiltro(),
+          calc: d.calc && Array.isArray(d.calc.rows) ? { ...newCalc(), ...d.calc } : newCalc(),
+          precos: Array.isArray(d.precos) ? d.precos : [],
           ultimoBackup: Date.now(),
           updatedAt: Date.now(),
           compras: Array.isArray(d.compras) ? d.compras : [],
@@ -1857,8 +2157,8 @@
   $("btnZerar").addEventListener("click", () => {
     if (!confirm("Apagar TODAS as compras, vendas e clientes deste navegador?")) return;
     if (!confirm("Tem certeza? Isso não pode ser desfeito sem um backup.")) return;
-    const settings = state.settings;
-    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [] };
+    const settings = state.settings, precos = state.precos;
+    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), calc: newCalc(), precos, ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [] };
     save(); renderAll(); toast("Dados apagados.");
   });
 
@@ -1895,6 +2195,8 @@
       draft: d.draft && Array.isArray(d.draft.rows) ? d.draft : newDraft(),
       vendaDraft: d.vendaDraft && Array.isArray(d.vendaDraft.itens) ? d.vendaDraft : newVendaDraft(),
       filtro: d.filtro && d.filtro.periodo ? { ...newFiltro(), ...d.filtro } : newFiltro(),
+      calc: d.calc && Array.isArray(d.calc.rows) ? { ...newCalc(), ...d.calc } : newCalc(),
+      precos: Array.isArray(d.precos) ? d.precos : [],
       ultimoBackup: d.ultimoBackup || null,
       updatedAt: rec.updatedAt,
       compras: Array.isArray(d.compras) ? d.compras : [],
@@ -2008,6 +2310,8 @@
     renderClienteForm();
     renderClientes();
     renderBackupStatus();
+    renderPrecos();
+    renderCalc();
   }
   load();
   renderAll();
