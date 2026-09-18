@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Gestão de Aparelhos</title>
+<meta name="theme-color" content="#b9822f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Aparelhos">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
 <style>
   :root {
@@ -479,6 +487,35 @@
   @media (max-width: 640px) { .filter-bar select { margin-left: 0; width: 100%; } }
   .period-note { font-size: 0.8rem; color: var(--ink-soft); margin: -6px 0 14px; }
 
+  /* ---------- sync indicator ---------- */
+  .sync {
+    font-size: 0.74rem; color: var(--ink-soft);
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 99px; background: var(--paper);
+    white-space: nowrap;
+  }
+  .sync::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+  .sync.ok::before { background: var(--teal); }
+  .sync.err::before { background: var(--danger); }
+  .sync.busy::before { background: var(--amber); }
+
+  /* ---------- backup banner ---------- */
+  .banner {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--amber-soft);
+    border: 1px solid var(--amber);
+    border-radius: 9px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.86rem;
+  }
+  .banner .spacer { flex: 1; }
+  .file-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .steps { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--ink-soft); line-height: 1.6; }
+  .steps b { color: var(--ink); font-weight: 600; }
+  .status-line { font-size: 0.84rem; color: var(--ink-soft); margin-top: 10px; }
+  .status-line b { color: var(--ink); font-weight: 600; }
+
   /* ---------- toast ---------- */
   #toast {
     position: fixed;
@@ -531,17 +568,23 @@
 <div class="app">
   <header class="topbar">
     <div class="wrap topbar-inner">
-      <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos</div>
+      <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos <span class="sync" id="syncDot" title="Sincronização" hidden>nuvem</span></div>
       <nav class="tabs" role="tablist">
         <button class="tab active" type="button" data-tab="compra" id="tabBtnCompra">Nova compra</button>
         <button class="tab" type="button" data-tab="compras">Compras <span class="pill" id="pillCompras">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
         <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
+        <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
       </nav>
     </div>
   </header>
 
   <main class="wrap">
+    <div class="banner" id="backupBanner" hidden>
+      <span id="backupBannerText">Você tem dados sem backup.</span>
+      <span class="spacer"></span>
+      <button class="btn small amber" type="button" id="btnBannerBackup">Fazer backup agora</button>
+    </div>
 
     <!-- ================= NOVA COMPRA ================= -->
     <section id="tab-compra" class="tabpanel active">
@@ -756,19 +799,6 @@
         <div id="vendasList"></div>
       </div>
 
-      <div class="card">
-        <h2>Dados que aparecem no documento do cliente</h2>
-        <div class="grid two">
-          <div class="field">
-            <label for="empresa">Nome / razão social</label>
-            <input type="text" id="empresa" placeholder="ex: Seu Nome Aparelhos">
-          </div>
-          <div class="field">
-            <label for="contato">Contato (WhatsApp, Pix, e-mail)</label>
-            <input type="text" id="contato" placeholder="ex: (11) 9 9999-9999 · Pix: chave">
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- ================= CLIENTES ================= -->
@@ -798,6 +828,76 @@
         </div>
       </div>
       <div id="clientesList"></div>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section id="tab-ajustes" class="tabpanel">
+      <div class="card">
+        <h2>Sincronização entre aparelhos</h2>
+        <p class="page-intro" style="margin-bottom:12px">Com a senha de sincronização, os dados ficam guardados na nuvem do site e aparecem iguais no celular, no computador e em qualquer outra máquina onde você entrar com a mesma senha.</p>
+        <div class="grid two">
+          <div class="field">
+            <label for="syncKey">Senha de sincronização</label>
+            <input type="password" id="syncKey" placeholder="digite a senha" autocomplete="off">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="button" id="btnSyncConectar">Conectar</button>
+          <button class="btn" type="button" id="btnSyncAgora" hidden>Sincronizar agora</button>
+          <span class="spacer"></span>
+          <button class="btn ghost danger" type="button" id="btnSyncSair" hidden>Desconectar</button>
+        </div>
+        <div class="status-line" id="syncStatus">Não conectado. Os dados ficam só neste navegador.</div>
+      </div>
+
+      <div class="card">
+        <h2>Backup dos dados</h2>
+        <p class="page-intro" style="margin-bottom:12px">O backup é um arquivo com tudo: compras, vendas, clientes e parâmetros. Guarde no Google Drive, WhatsApp ou e-mail e restaure em qualquer aparelho.</p>
+        <div class="actions" style="margin-top:0">
+          <button class="btn primary" type="button" id="btnBackupBaixar">Baixar backup</button>
+          <button class="btn" type="button" id="btnBackupEnviar" hidden>Enviar backup…</button>
+          <button class="btn" type="button" id="btnBackupRestaurar">Restaurar de um arquivo</button>
+          <input class="file-hidden" type="file" id="backupFile" accept=".json,application/json">
+        </div>
+        <div class="status-line" id="backupStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>Dados que aparecem no documento do cliente</h2>
+        <div class="grid two">
+          <div class="field">
+            <label for="empresa">Nome / razão social</label>
+            <input type="text" id="empresa" placeholder="ex: Seu Nome Aparelhos">
+          </div>
+          <div class="field">
+            <label for="contato">Contato (WhatsApp, Pix, e-mail)</label>
+            <input type="text" id="contato" placeholder="ex: (11) 9 9999-9999 · Pix: chave">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Instalar como aplicativo</h2>
+        <div class="actions" style="margin-top:0" id="installRow" hidden>
+          <button class="btn primary" type="button" id="btnInstalar">Instalar app</button>
+          <span class="muted" style="font-size:0.84rem">Cria um atalho na área de trabalho ou na tela inicial e abre sem a barra do navegador.</span>
+        </div>
+        <div id="installDone" class="status-line" hidden><b>Instalado.</b> Você está usando a versão instalada.</div>
+        <ol class="steps" id="installSteps">
+          <li><b>Computador (Chrome ou Edge):</b> clique no ícone de instalar no fim da barra de endereço, ou abra o menu ⋮ e escolha <b>Instalar Gestão de Aparelhos</b>.</li>
+          <li><b>Android:</b> menu ⋮ do Chrome e <b>Adicionar à tela inicial</b> ou <b>Instalar app</b>.</li>
+          <li><b>iPhone:</b> no Safari, toque em Compartilhar e <b>Adicionar à Tela de Início</b>.</li>
+        </ol>
+        <div class="status-line">Depois de instalado o app abre mesmo sem internet e continua funcionando se o site ficar fora do ar. As alterações ficam salvas e o site é atualizado na próxima abertura com conexão.</div>
+      </div>
+
+      <div class="card">
+        <h2>Zerar dados</h2>
+        <p class="page-intro" style="margin-bottom:12px">Apaga compras, vendas e clientes deste navegador. Faça um backup antes.</p>
+        <div class="actions" style="margin-top:0">
+          <button class="btn danger" type="button" id="btnZerar">Apagar tudo</button>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -833,6 +933,8 @@
     draft: newDraft(),
     vendaDraft: newVendaDraft(),
     filtro: newFiltro(),
+    ultimoBackup: null,
+    updatedAt: 0,
     compras: [],
     vendas: [],
     clientes: [],
@@ -852,6 +954,8 @@
             draft: p.draft && Array.isArray(p.draft.rows) ? p.draft : newDraft(),
             vendaDraft: p.vendaDraft && Array.isArray(p.vendaDraft.itens) ? p.vendaDraft : newVendaDraft(),
             filtro: p.filtro && p.filtro.periodo ? { ...newFiltro(), ...p.filtro } : newFiltro(),
+            ultimoBackup: p.ultimoBackup || null,
+            updatedAt: p.updatedAt || 0,
             compras: Array.isArray(p.compras) ? p.compras : [],
             vendas: Array.isArray(p.vendas) ? p.vendas : [],
             clientes: Array.isArray(p.clientes) ? p.clientes : [],
@@ -878,7 +982,9 @@
     } catch (e) { /* storage unavailable or corrupt */ }
   }
   function save() {
+    state.updatedAt = Date.now();
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    scheduleSync();
   }
 
   /* ---------------- formatting ---------------- */
@@ -1679,6 +1785,213 @@
     printHTML(html, "Aparelhos - " + v.clienteNome + " - " + fmtDate(v.data));
   }
 
+  /* ================= BACKUP ================= */
+  function backupPayload() {
+    return JSON.stringify({ app: "gestao-aparelhos", versao: 1, exportadoEm: new Date().toISOString(), dados: state }, null, 1);
+  }
+  function backupFileName() { return "backup-aparelhos-" + todayISO() + ".json"; }
+  function marcarBackup() { state.ultimoBackup = Date.now(); save(); renderBackupStatus(); }
+  function baixarBackup() {
+    const blob = new Blob([backupPayload()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = backupFileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    marcarBackup(); toast("Backup baixado. Guarde o arquivo em um lugar seguro.");
+  }
+  async function enviarBackup() {
+    try {
+      const file = new File([backupPayload()], backupFileName(), { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Backup Gestão de Aparelhos" });
+        marcarBackup(); toast("Backup enviado.");
+        return;
+      }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    baixarBackup();
+  }
+  function restaurarBackup(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const p = JSON.parse(reader.result);
+        const d = p && p.app === "gestao-aparelhos" && p.dados ? p.dados : (p && p.settings && Array.isArray(p.compras) ? p : null);
+        if (!d) { toast("Este arquivo não é um backup do app."); return; }
+        const n = (d.compras || []).length + " compra(s), " + (d.vendas || []).length + " venda(s) e " + (d.clientes || []).length + " cliente(s)";
+        if (!confirm("Restaurar backup com " + n + "?\n\nOs dados atuais deste navegador serão substituídos.")) return;
+        state = {
+          settings: { ...DEFAULT_SETTINGS, ...(d.settings || {}) },
+          draft: d.draft && Array.isArray(d.draft.rows) ? d.draft : newDraft(),
+          vendaDraft: d.vendaDraft && Array.isArray(d.vendaDraft.itens) ? d.vendaDraft : newVendaDraft(),
+          filtro: d.filtro && d.filtro.periodo ? { ...newFiltro(), ...d.filtro } : newFiltro(),
+          ultimoBackup: Date.now(),
+          updatedAt: Date.now(),
+          compras: Array.isArray(d.compras) ? d.compras : [],
+          vendas: Array.isArray(d.vendas) ? d.vendas : [],
+          clientes: Array.isArray(d.clientes) ? d.clientes : [],
+        };
+        save(); renderAll(); toast("Backup restaurado.");
+      } catch (e) { toast("Não consegui ler o arquivo."); }
+    };
+    reader.readAsText(file);
+  }
+  function renderBackupStatus() {
+    const temDados = state.compras.length + state.vendas.length + state.clientes.length > 0;
+    const dias = state.ultimoBackup ? Math.floor((Date.now() - state.ultimoBackup) / 86400000) : null;
+    const st = $("backupStatus");
+    if (!temDados) st.innerHTML = "Ainda não há dados para salvar.";
+    else if (dias === null) st.innerHTML = "<b>Nenhum backup feito ainda.</b> " + state.compras.length + " compra(s), " + state.vendas.length + " venda(s) e " + state.clientes.length + " cliente(s) só neste navegador.";
+    else st.innerHTML = "Último backup: <b>" + (dias === 0 ? "hoje" : dias === 1 ? "ontem" : "há " + dias + " dias") + "</b> (" + new Date(state.ultimoBackup).toLocaleString("pt-BR") + ").";
+    const banner = $("backupBanner");
+    const precisa = temDados && (dias === null || dias >= 7);
+    banner.hidden = !precisa;
+    if (precisa) $("backupBannerText").textContent = dias === null ? "Seus dados ainda não têm backup. Se o navegador for limpo, eles somem." : "Seu último backup foi há " + dias + " dias.";
+  }
+  $("btnBackupBaixar").addEventListener("click", baixarBackup);
+  $("btnBackupEnviar").addEventListener("click", enviarBackup);
+  if (navigator.share && navigator.canShare) { try { if (navigator.canShare({ files: [new File(["x"], "x.json", { type: "application/json" })] })) $("btnBackupEnviar").hidden = false; } catch (e) { /* not supported */ } }
+  $("btnBackupRestaurar").addEventListener("click", () => $("backupFile").click());
+  $("backupFile").addEventListener("change", (e) => { const f = e.target.files && e.target.files[0]; if (f) restaurarBackup(f); e.target.value = ""; });
+  $("btnBannerBackup").addEventListener("click", () => { showTab("ajustes"); baixarBackup(); });
+  $("btnZerar").addEventListener("click", () => {
+    if (!confirm("Apagar TODAS as compras, vendas e clientes deste navegador?")) return;
+    if (!confirm("Tem certeza? Isso não pode ser desfeito sem um backup.")) return;
+    const settings = state.settings;
+    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [] };
+    save(); renderAll(); toast("Dados apagados.");
+  });
+
+  /* ================= SYNC (nuvem) ================= */
+  const SYNC_LS = "gestao-aparelhos-sync";
+  let sync = { key: "", base: 0, ultimo: null };
+  try { const raw = localStorage.getItem(SYNC_LS); if (raw) sync = { ...sync, ...JSON.parse(raw) }; } catch (e) { /* ignore */ }
+  const saveSync = () => { try { localStorage.setItem(SYNC_LS, JSON.stringify(sync)); } catch (e) { /* ignore */ } };
+  const syncAvailable = location.protocol === "https:" || location.hostname === "localhost";
+  let syncTimer = null, syncBusy = false, syncPending = false;
+
+  function setSyncUI(cls, text) {
+    const dot = $("syncDot");
+    dot.hidden = !sync.key;
+    dot.className = "sync " + cls;
+    dot.title = text;
+    $("syncStatus").textContent = text;
+  }
+  function renderSyncForm() {
+    const on = !!sync.key;
+    $("syncKey").value = sync.key || "";
+    $("btnSyncConectar").hidden = on;
+    $("btnSyncAgora").hidden = !on;
+    $("btnSyncSair").hidden = !on;
+    $("syncKey").disabled = on;
+    if (!on) setSyncUI("", "Não conectado. Os dados ficam só neste navegador.");
+    else if (sync.ultimo) setSyncUI("ok", "Conectado. Última sincronização " + new Date(sync.ultimo).toLocaleString("pt-BR") + ".");
+    else setSyncUI("", "Conectado. Aguardando a primeira sincronização.");
+  }
+  function applyRemote(rec) {
+    const d = rec.dados || {};
+    state = {
+      settings: { ...DEFAULT_SETTINGS, ...(d.settings || {}) },
+      draft: d.draft && Array.isArray(d.draft.rows) ? d.draft : newDraft(),
+      vendaDraft: d.vendaDraft && Array.isArray(d.vendaDraft.itens) ? d.vendaDraft : newVendaDraft(),
+      filtro: d.filtro && d.filtro.periodo ? { ...newFiltro(), ...d.filtro } : newFiltro(),
+      ultimoBackup: d.ultimoBackup || null,
+      updatedAt: rec.updatedAt,
+      compras: Array.isArray(d.compras) ? d.compras : [],
+      vendas: Array.isArray(d.vendas) ? d.vendas : [],
+      clientes: Array.isArray(d.clientes) ? d.clientes : [],
+    };
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    sync.base = rec.updatedAt;
+    renderAll();
+  }
+  async function syncRequest(method, body) {
+    const res = await fetch("/api/sync", {
+      method, headers: { "content-type": "application/json", "x-sync-key": sync.key },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => null);
+    return { status: res.status, data };
+  }
+  const temDados = () => state.compras.length + state.vendas.length + state.clientes.length > 0;
+  async function syncPush() {
+    const r = await syncRequest("PUT", { baseUpdatedAt: sync.base || 0, updatedAt: state.updatedAt || Date.now(), dados: state });
+    if (r.status === 200) { sync.base = r.data.updatedAt; sync.ultimo = Date.now(); saveSync(); renderSyncForm(); return true; }
+    if (r.status === 409 && r.data && r.data.dados) {
+      applyRemote(r.data); sync.ultimo = Date.now(); saveSync(); renderSyncForm();
+      toast("Outro aparelho salvou dados mais novos. Eles foram carregados; confira sua última alteração.");
+      return true;
+    }
+    throw new Error(r.data && r.data.error ? r.data.error : "Falha ao enviar (" + r.status + ")");
+  }
+  async function syncPull({ first } = {}) {
+    const r = await syncRequest("GET");
+    if (r.status !== 200) throw new Error(r.data && r.data.error ? r.data.error : "Falha ao buscar (" + r.status + ")");
+    const remote = r.data;
+    if (!remote) {
+      if (temDados()) await syncPush();
+      else { sync.ultimo = Date.now(); saveSync(); }
+      return;
+    }
+    if (remote.updatedAt === sync.base && !first) { sync.ultimo = Date.now(); saveSync(); return; }
+    if (first && temDados() && !confirm("A nuvem já tem dados salvos. Substituir os dados deste navegador pelos da nuvem?\n\n(Cancelar mantém os daqui e envia para a nuvem.)")) {
+      sync.base = remote.updatedAt; await syncPush(); return;
+    }
+    if (remote.updatedAt !== (state.updatedAt || 0)) { applyRemote(remote); if (!first) toast("Dados atualizados da nuvem."); }
+    else sync.base = remote.updatedAt;
+    sync.ultimo = Date.now(); saveSync(); renderSyncForm();
+  }
+  async function runSync(fn) {
+    if (!sync.key || !syncAvailable) return;
+    if (syncBusy) { syncPending = true; return; }
+    syncBusy = true; setSyncUI("busy", "Sincronizando…");
+    try { await fn(); renderSyncForm(); }
+    catch (e) { setSyncUI("err", "Sem conexão com a nuvem: " + (e.message || e) + ". As alterações ficam salvas aqui e sobem quando voltar."); }
+    finally { syncBusy = false; if (syncPending) { syncPending = false; scheduleSync(); } }
+  }
+  function scheduleSync() {
+    if (!sync.key || !syncAvailable) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => runSync(syncPush), 1200);
+  }
+  $("btnSyncConectar").addEventListener("click", async () => {
+    const k = $("syncKey").value.trim();
+    if (!k) { toast("Digite a senha de sincronização."); return; }
+    if (!syncAvailable) { toast("A sincronização só funciona no site publicado."); return; }
+    sync.key = k; sync.base = 0; saveSync(); renderSyncForm();
+    await runSync(() => syncPull({ first: true }));
+    if ($("syncDot").classList.contains("err")) { sync.key = ""; saveSync(); renderSyncForm(); toast("Não conectou. Confira a senha."); }
+    else toast("Conectado à nuvem.");
+  });
+  $("btnSyncAgora").addEventListener("click", () => runSync(async () => { await syncPull(); await syncPush(); }));
+  $("btnSyncSair").addEventListener("click", () => {
+    if (!confirm("Desconectar da nuvem? Os dados continuam neste navegador e na nuvem, mas param de sincronizar.")) return;
+    sync = { key: "", base: 0, ultimo: null }; saveSync(); renderSyncForm();
+  });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") runSync(syncPull); });
+  window.addEventListener("online", () => runSync(async () => { await syncPull(); await syncPush(); }));
+  setInterval(() => { if (document.visibilityState === "visible") runSync(syncPull); }, 45000);
+
+  /* ================= INSTALL (PWA) ================= */
+  let installPrompt = null;
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  if (standalone) { $("installDone").hidden = false; $("installSteps").hidden = true; }
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault(); installPrompt = e;
+    $("installRow").hidden = false;
+  });
+  $("btnInstalar").addEventListener("click", async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const r = await installPrompt.userChoice;
+    installPrompt = null; $("installRow").hidden = true;
+    if (r && r.outcome === "accepted") toast("App instalado.");
+  });
+  window.addEventListener("appinstalled", () => { $("installRow").hidden = true; $("installDone").hidden = false; $("installSteps").hidden = true; });
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => { /* offline support unavailable */ }); });
+  }
+
   /* ================= boot ================= */
   function renderAll() {
     renderSettings();
@@ -1691,10 +2004,13 @@
     renderVendas();
     renderClienteForm();
     renderClientes();
+    renderBackupStatus();
   }
   load();
   renderAll();
+  renderSyncForm();
   try { const t = localStorage.getItem(UI_KEY); if (t && $("tab-" + t)) showTab(t); } catch (e) { /* ignore */ }
+  runSync(syncPull);
 })();
 </script>
 </body>
