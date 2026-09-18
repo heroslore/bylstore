@@ -1934,6 +1934,9 @@
       return;
     }
     if (remote.updatedAt === sync.base && !first) { sync.ultimo = Date.now(); saveSync(); return; }
+    const rd = remote.dados || {};
+    const remoteVazio = !((rd.compras || []).length + (rd.vendas || []).length + (rd.clientes || []).length);
+    if (first && remoteVazio && temDados()) { sync.base = remote.updatedAt; await syncPush(); return; }
     if (first && temDados() && !confirm("A nuvem já tem dados salvos. Substituir os dados deste navegador pelos da nuvem?\n\n(Cancelar mantém os daqui e envia para a nuvem.)")) {
       sync.base = remote.updatedAt; await syncPush(); return;
     }
