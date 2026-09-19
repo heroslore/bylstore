@@ -927,6 +927,7 @@
           </table>
         </div>
         <button class="btn dashed" id="addVendaRow" type="button">+ adicionar aparelho</button>
+        <p class="hint">O preço de venda vem da <b>Lista de preços de venda</b> (aba Calculadora) quando o modelo bate, e pode ser alterado à vontade.</p>
         <div class="actions">
           <button class="btn primary" id="btnRegistrarVenda" type="button">Registrar venda</button>
           <span class="spacer"></span>
@@ -1682,6 +1683,24 @@
   $("vendaCliente").addEventListener("input", (e) => { state.vendaDraft.cliente = e.target.value; save(); });
   $("vendaData").addEventListener("input", (e) => { state.vendaDraft.data = e.target.value; save(); });
 
+  const MODIFIERS = ["pro", "max", "plus", "mini"];
+  function precoTabela(modelo) {
+    const norm = (t) => String(t || "").toLowerCase().replace(/gb/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+    const mods = (t) => MODIFIERS.filter((m) => new RegExp("\\b" + m + "\\b").test(t)).join(",");
+    const a = norm(modelo); if (!a) return null;
+    const ac = a.replace(/\s+/g, ""), am = mods(a);
+    let best = null, score = 0;
+    state.precos.forEach((p) => {
+      const b = norm(p.modelo); if (!b || !(numOr(p.preco, 0) > 0)) return;
+      const bc = b.replace(/\s+/g, "");
+      if (mods(b) !== am) return;
+      let sc = 0;
+      if (ac === bc) sc = 1000;
+      else if (ac.startsWith(bc) || bc.startsWith(ac)) sc = Math.min(ac.length, bc.length);
+      if (sc > score) { score = sc; best = p; }
+    });
+    return best ? numOr(best.preco, 0) : null;
+  }
   function stockOptions(selectedKey) {
     const stock = stockList();
     const opts = stock.filter((s) => s.avail > 0 || s.key === selectedKey);
@@ -1720,6 +1739,9 @@
       const it = state.vendaDraft.itens[Number(e.target.dataset.idx)];
       const [compraId, rowId] = e.target.value.split("|");
       it.compraId = compraId || null; it.rowId = rowId || null;
+      const st = stockList().find((x) => x.key === e.target.value);
+      const tab = st ? precoTabela(st.modelo) : null;
+      if (tab !== null) it.preco = tab;
       save(); renderVendaRows();
     }));
     tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onVendaInput));
