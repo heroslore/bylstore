@@ -1,0 +1,2417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+<title>Controle Semanal — Gás e Água</title>
+<style>
+  :root {
+    --azul: #16324a;
+    --azul-claro: #1f4666;
+    --areia: #f7f3ec;
+    --verde: #2e8b57;
+    --verde-claro: #e5f3ec;
+    --vermelho: #c0392b;
+    --amarelo: #b7791f;
+    --amarelo-claro: #fdf3dc;
+    --cinza: #8a94a0;
+    --gas: #f2762e;
+    --gas-escuro: #d95f1a;
+    --gas-suave: #fdeadd;
+    --agua: #1e7fc2;
+    --agua-escuro: #145e92;
+    --agua-suave: #ddeefa;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family:"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--areia); color:var(--azul);
+    min-height:100vh; padding-bottom:90px;
+  }
+  header {
+    background:var(--azul); color:#fff; padding:14px 16px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  header h1 { font-size:1.15rem; }
+  header .semana-info { font-size:0.9rem; opacity:0.85; text-align:right; }
+
+  main { max-width:780px; margin:0 auto; padding:16px 14px; }
+
+  nav {
+    position:fixed; bottom:0; left:0; right:0;
+    background:#fff; border-top:2px solid #e0dbd0;
+    display:flex; z-index:50;
+  }
+  nav button {
+    flex:1; border:none; background:none; padding:10px 0 12px;
+    font-size:0.72rem; color:var(--cinza); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  nav button .ico { font-size:1.25rem; }
+  nav button.ativa { color:var(--gas); font-weight:700; }
+
+  .tela { display:none; }
+  .tela.ativa { display:block; }
+
+  .btn {
+    border:none; border-radius:14px; padding:16px 20px;
+    font-size:1.1rem; font-weight:700; cursor:pointer; width:100%;
+  }
+  .btn-laranja { background:var(--gas); color:#fff; box-shadow:0 4px 0 var(--gas-escuro); }
+  .btn-laranja:active { transform:translateY(3px); box-shadow:0 1px 0 var(--gas-escuro); }
+  .btn-verde { background:var(--verde); color:#fff; }
+  .btn-cinza { background:#e3ded4; color:var(--azul); }
+  .btn-vermelho { background:var(--vermelho); color:#fff; }
+  .btn-azul { background:var(--azul); color:#fff; }
+
+  .cartao {
+    background:#fff; border-radius:16px; padding:16px; margin-bottom:14px;
+    border:1px solid #e6e1d6;
+  }
+  .cartao h2 { font-size:1.08rem; margin-bottom:12px; }
+  .campo { margin-bottom:12px; }
+  .campo label { display:block; font-size:0.88rem; color:var(--cinza); margin-bottom:4px; }
+  .campo input, .campo select {
+    width:100%; padding:12px; font-size:1.1rem;
+    border:1.5px solid #d5d0c6; border-radius:10px;
+    background:var(--areia); color:var(--azul);
+  }
+  .linha2 { display:flex; gap:10px; }
+  .linha2 .campo { flex:1; }
+
+  /* escolha de produto dentro de formulários */
+  .escolha-prod { display:flex; gap:8px; margin-bottom:12px; }
+  .escolha-prod button {
+    flex:1; border:2px solid #d5d0c6; background:#fff; color:var(--azul);
+    border-radius:12px; padding:14px 6px; font-size:1.1rem; font-weight:700; cursor:pointer;
+  }
+  .escolha-prod button.sel-gas { border-color:var(--gas); background:var(--gas-suave); color:var(--gas-escuro); }
+  .escolha-prod button.sel-agua { border-color:var(--agua); background:var(--agua-suave); color:var(--agua-escuro); }
+
+  .painel { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .painel .box { background:#fff; border-radius:14px; padding:12px 14px; border:1px solid #e6e1d6; }
+  .painel .box.b-gas { border-left:5px solid var(--gas); }
+  .painel .box.b-agua { border-left:5px solid var(--agua); }
+  .painel .box.destaque { background:var(--azul); color:#fff; border:none; grid-column:1/-1; }
+  .painel .rot { font-size:0.83rem; color:var(--cinza); }
+  .painel .destaque .rot { color:rgba(255,255,255,0.75); }
+  .painel .num { font-size:1.35rem; font-weight:700; margin-top:2px; }
+  .painel .num.pos { color:var(--verde); }
+  .painel .num.neg { color:var(--vermelho); }
+  .painel .destaque .num { color:#fff; font-size:1.7rem; }
+  .painel .destaque .num.neg { color:#ffb3a7; }
+
+  .status { text-align:center; font-size:1rem; min-height:24px; margin-bottom:8px; color:var(--azul-claro); }
+  .status.erro { color:var(--vermelho); font-weight:600; }
+
+  .venda {
+    background:#fff; border-radius:14px; padding:13px; margin-bottom:10px;
+    border-left:6px solid var(--cinza); border-top:1px solid #eee;
+  }
+  .venda.p-gas { border-left-color:var(--gas); }
+  .venda.p-agua { border-left-color:var(--agua); }
+  .venda .topo { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .venda .cliente { font-weight:700; font-size:1.1rem; }
+  .venda .valor { font-size:1.15rem; font-weight:700; white-space:nowrap; }
+  .venda .det { font-size:0.92rem; color:var(--cinza); margin-top:3px; }
+  .selo { display:inline-block; font-size:0.78rem; font-weight:700; padding:3px 9px; border-radius:20px; margin-top:6px; margin-right:4px; }
+  .selo.pago { background:var(--verde-claro); color:var(--verde); }
+  .selo.entrega { background:var(--gas-suave); color:var(--gas-escuro); }
+  .selo.prazo { background:var(--amarelo-claro); color:var(--amarelo); }
+  .selo.entregue { background:#e8eef4; color:var(--azul-claro); }
+  .selo.pendente { background:#f3e8fd; color:#7b3fa0; }
+  .selo.povo { background:#fdE3e0; color:#b02318; border:1px solid #e79c94; }
+  #escolhaTipoGas button[data-t="povo"].sel { border-color:#b02318; background:#fde3e0; color:#b02318; }
+  .venda .acoes { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .venda .acoes button { border:none; border-radius:10px; padding:9px 13px; font-size:0.92rem; font-weight:700; cursor:pointer; }
+  .b-entregue { background:#e8eef4; color:var(--azul); }
+  .b-pagar { background:var(--verde); color:#fff; }
+  .b-apagar { background:none; color:var(--cinza); font-size:1.2rem !important; padding:9px !important; }
+
+  .item-linha {
+    background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:8px;
+    display:flex; justify-content:space-between; align-items:center; border:1px solid #e6e1d6; gap:8px;
+  }
+  .item-linha .il-desc { font-weight:600; font-size:1.02rem; flex:1; }
+  .item-linha .il-sub { font-size:0.85rem; color:var(--cinza); font-weight:400; }
+  .item-linha .il-valor { font-weight:700; font-size:1.05rem; white-space:nowrap; }
+
+  .atalhos-gasto { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .atalhos-gasto button {
+    flex:1; min-width:100px; border:2px solid var(--azul-claro); background:#fff; color:var(--azul);
+    border-radius:12px; padding:11px 4px; font-size:0.95rem; font-weight:700; cursor:pointer;
+  }
+  .atalhos-gasto button.sel { background:var(--azul); color:#fff; }
+
+  .vazio { text-align:center; color:var(--cinza); padding:24px 10px; }
+  .titulo-secao { font-size:1.02rem; margin:16px 0 10px; display:flex; justify-content:space-between; align-items:center; }
+
+  .modal-fundo {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100;
+    align-items:flex-start; justify-content:center; padding:12px;
+    overflow-y:auto;
+  }
+  .modal-fundo.aberto { display:flex; }
+  .modal {
+    background:#fff; border-radius:18px; padding:18px; width:100%; max-width:430px;
+    margin-bottom:45vh; /* folga pro teclado não cobrir os campos de baixo */
+  }
+  .modal h2 { font-size:1.12rem; margin-bottom:12px; }
+  .modal .botoes { display:flex; gap:10px; margin-top:12px; }
+  .modal .botoes .btn { padding:14px; font-size:1.02rem; }
+
+  .escolha-pag { display:flex; gap:8px; }
+  .escolha-pag button {
+    flex:1; border:2px solid #d5d0c6; background:var(--areia); color:var(--azul);
+    border-radius:12px; padding:13px 6px; font-size:1rem; font-weight:700; cursor:pointer;
+  }
+  .escolha-pag button.sel { border-color:var(--verde); background:var(--verde-claro); color:var(--verde); }
+
+  /* Lista de clientes no modal de venda */
+  .lista-clientes {
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:12px;
+    max-height:190px; overflow-y:auto;
+  }
+  .lista-clientes .chip {
+    border:1.5px solid #d5d0c6; background:var(--areia); color:var(--azul);
+    border-radius:12px; padding:10px 8px; font-size:0.95rem; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; gap:4px; min-width:0;
+  }
+  .lista-clientes .chip .nome-chip { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+  .lista-clientes .chip .preco-chip { font-size:0.78rem; color:var(--cinza); font-weight:400; white-space:nowrap; }
+  .lista-clientes .chip.escolhido { border-color:var(--verde); background:var(--verde-claro); color:var(--verde); }
+  .lista-clientes .chip .x-chip { color:var(--cinza); font-size:0.85rem; padding:2px 3px; flex-shrink:0; }
+  .dica-clientes { font-size:0.85rem; color:var(--cinza); margin-bottom:8px; }
+
+  .hist-item { background:#fff; border-radius:14px; padding:14px 16px; margin-bottom:10px; border:1px solid #e6e1d6; }
+  .hist-item .h-datas { font-weight:700; font-size:1.02rem; }
+  .hist-item .h-lucro { font-size:1.12rem; font-weight:700; margin-top:4px; }
+  .hist-item .h-det { font-size:0.88rem; color:var(--cinza); margin-top:2px; line-height:1.5; }
+
+  .aviso {
+    background:var(--amarelo-claro); border:1px solid #e0c877; color:#7a6215;
+    border-radius:12px; padding:12px 14px; margin-bottom:14px; font-size:0.92rem;
+  }
+
+  .dia-rota {
+    background:#fff; border-radius:14px; border:1px solid #e6e1d6;
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .dia-rota .dr-data { font-weight:700; font-size:1.05rem; margin-bottom:6px; }
+  .dia-rota .dr-linha { display:flex; justify-content:space-between; font-size:0.95rem; padding:2px 0; }
+  .dia-rota .dr-lucro { border-top:1px dashed #d5d0c6; margin-top:6px; padding-top:6px; font-weight:700; }
+
+  .filtro-prod { display:flex; gap:8px; margin-bottom:12px; }
+  .filtro-prod button {
+    flex:1; border:2px solid #d5d0c6; background:#fff; color:var(--cinza);
+    border-radius:12px; padding:10px 4px; font-size:0.95rem; font-weight:700; cursor:pointer;
+  }
+  .filtro-prod button.sel { border-color:var(--azul); background:var(--azul); color:#fff; }
+
+  /* Impressão */
+  #areaImpressao { display:none; }
+  @media print {
+    body > *:not(#areaImpressao) { display:none !important; }
+    #areaImpressao { display:block !important; padding:10px; font-size:13px; color:#000; }
+    #areaImpressao h1 { font-size:18px; margin-bottom:4px; }
+    #areaImpressao h2 { font-size:15px; margin:12px 0 6px; }
+    #areaImpressao table { width:100%; border-collapse:collapse; }
+    #areaImpressao th, #areaImpressao td { border:1px solid #999; padding:5px 7px; text-align:left; }
+    #areaImpressao th { background:#eee; }
+    #areaImpressao .rodape { margin-top:14px; font-size:11px; color:#555; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥💧 Controle Semanal</h1>
+  <div class="semana-info" id="semanaInfo">—</div>
+</header>
+
+<main>
+
+  <!-- TELA: SEMANA -->
+  <div class="tela ativa" id="tela-semana">
+
+    <!-- Sem semana aberta -->
+    <div id="semAberta" style="display:none">
+      <div class="cartao">
+        <h2>📅 Abrir nova semana</h2>
+        <div class="linha2">
+          <div class="campo">
+            <label>Dia que abre (ex.: segunda)</label>
+            <input type="date" id="abInicio">
+          </div>
+          <div class="campo">
+            <label>Dia que fecha (ex.: sábado)</label>
+            <input type="date" id="abFim">
+          </div>
+        </div>
+        <h2 style="margin-top:6px">📦 Estoque que já tem (da semana passada)</h2>
+        <div class="linha2">
+          <div class="campo">
+            <label>🔥 Botijões em estoque</label>
+            <input type="number" id="abEstGasQtd" min="0" inputmode="numeric" value="0">
+          </div>
+          <div class="campo">
+            <label>Custo por botijão (R$)</label>
+            <input type="number" id="abEstGasCusto" step="0.01" inputmode="decimal" value="0">
+          </div>
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>💧 Galões de água em estoque</label>
+            <input type="number" id="abEstAguaQtd" min="0" inputmode="numeric" value="0">
+          </div>
+          <div class="campo">
+            <label>Custo por galão (R$)</label>
+            <input type="number" id="abEstAguaCusto" step="0.01" inputmode="decimal" value="0">
+          </div>
+        </div>
+        <div id="msgEstoquePuxado" style="font-size:0.9rem; color:var(--verde); margin-bottom:10px;"></div>
+        <button class="btn btn-laranja" id="btnAbrirSemana">ABRIR SEMANA</button>
+      </div>
+      <div class="titulo-secao"><span>Semanas fechadas</span></div>
+      <div id="historico"><div class="vazio">Nenhuma semana fechada ainda.</div></div>
+    </div>
+
+    <!-- Semana ativa -->
+    <div id="semAtiva" style="display:none">
+      <div class="painel" id="painelSemana"></div>
+
+      <div class="cartao">
+        <h2>🛻 Lançar compra (subida pro depósito)</h2>
+        <div class="escolha-prod" id="prodCompra">
+          <button data-p="gas">🔥 Botijão</button>
+          <button data-p="agua">💧 Água</button>
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>Data da compra</label>
+            <input type="date" id="cpData">
+          </div>
+          <div class="campo">
+            <label>Quantidade</label>
+            <input type="number" id="cpQtd" min="1" inputmode="numeric" placeholder="Ex.: 1000">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Onde comprou? (fornecedor)</label>
+          <div class="lista-clientes" id="chipsFornecedor" style="max-height:60px; margin-bottom:6px;"></div>
+          <input type="text" id="cpFornecedor" placeholder="Ex.: Distribuidora X, Fonte Y...">
+        </div>
+        <div class="campo">
+          <label>Preço de compra por unidade (R$)</label>
+          <input type="number" id="cpPreco" step="0.01" inputmode="decimal" placeholder="Ex.: 8,50">
+        </div>
+        <label style="display:block; font-size:0.9rem; color:var(--cinza); margin-bottom:6px;">Gastos da puxada (se tiver — ex.: buscar a água):</label>
+        <div class="campo">
+          <label>Quem foi o motorista?</label>
+          <div class="lista-clientes" id="chipsMotoristaCompra" style="max-height:60px; margin-bottom:6px;"></div>
+          <input type="text" id="cpMotoristaNome" placeholder="Nome do motorista">
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>🚚 Motorista (R$)</label>
+            <input type="number" id="cpMotorista" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+          <div class="campo">
+            <label>⛽ Combustível (R$)</label>
+            <input type="number" id="cpCombustivel" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+        </div>
+        <div class="campo">
+          <label>📦 Outros gastos da puxada (R$)</label>
+          <input type="number" id="cpOutros" step="0.01" inputmode="decimal" placeholder="0,00">
+        </div>
+        <div id="cpPreview" style="font-size:1.05rem; font-weight:700; color:var(--verde); margin-bottom:10px; min-height:24px;"></div>
+        <button class="btn btn-laranja" id="btnAddCompra">ADICIONAR COMPRA</button>
+      </div>
+
+      <div class="titulo-secao"><span>Compras da semana</span><b id="totalCompras">R$ 0,00</b></div>
+      <div id="listaCompras"><div class="vazio">Nenhuma compra lançada.</div></div>
+
+      <button class="btn btn-vermelho" id="btnFecharSemana" style="margin-top:14px">🔒 FECHAR SEMANA</button>
+    </div>
+  </div>
+
+  <!-- TELA: VENDAS -->
+  <div class="tela" id="tela-vendas">
+    <div id="vendasSemSemana" class="vazio" style="display:none">Abra uma semana primeiro (aba Semana).</div>
+    <div id="vendasConteudo" style="display:none">
+      <button class="btn btn-laranja" id="btnAbrirLote" style="margin-bottom:10px; padding:18px; font-size:1.15rem;">📋 PRÉ-VENDA EM LOTE (lista de clientes)</button>
+      <button class="btn btn-cinza" id="btnAbrirManual" style="margin-bottom:8px; padding:13px; font-size:1rem;">➕ Venda individual</button>
+      <button class="btn btn-cinza" id="btnNovoCliente" style="margin-bottom:12px; padding:13px; font-size:1rem;">👤 Cadastrar cliente novo</button>
+      <div class="status" id="statusVoz"></div>
+
+      <button class="btn btn-azul" id="btnImprimir" style="margin-bottom:8px; padding:13px; font-size:1rem;">🖨️ Imprimir lista de entregas (pra equipe)</button>
+      <button class="btn btn-verde" id="btnWhats" style="margin-bottom:12px; padding:13px; font-size:1rem;">📱 Enviar lista pelo WhatsApp (PDF)</button>
+
+      <div class="filtro-prod" id="filtroProd">
+        <button data-f="todos" class="sel">Todos</button>
+        <button data-f="gas">🔥 Gás</button>
+        <button data-f="agua">💧 Água</button>
+        <button data-f="pendentes">📋 A entregar</button>
+      </div>
+
+      <div class="titulo-secao"><span>Vendas e pré-vendas (<span id="qtdVendas">0</span>)</span></div>
+      <div id="listaVendas"><div class="vazio">Nenhuma venda ainda.</div></div>
+    </div>
+  </div>
+
+  <!-- TELA: SAÍDA / ACERTO -->
+  <div class="tela" id="tela-saida">
+    <div id="saidaSemSemana" class="vazio" style="display:none">Abra uma semana primeiro (aba Semana).</div>
+    <div id="saidaConteudo" style="display:none">
+
+      <div class="cartao">
+        <h2>🛻 Saída do caminhão (carga)</h2>
+        <div class="dica-clientes">Quanto saiu do depósito pra rota — leve a mais, porque cliente pode pedir extra na hora.</div>
+        <div class="lista-clientes" id="chipsRotaSaida" style="max-height:100px;"></div>
+        <div class="campo">
+          <label>Quem foi o motorista?</label>
+          <div class="lista-clientes" id="chipsMotoristaSaida" style="max-height:60px; margin-bottom:6px;"></div>
+          <input type="text" id="sdMotoristaNome" placeholder="Nome do motorista">
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>Data da saída</label>
+            <input type="date" id="sdData">
+          </div>
+          <div class="campo">
+            <label>🔥 Botijões que saíram</label>
+            <input type="number" id="sdGas" min="0" inputmode="numeric" placeholder="0">
+          </div>
+        </div>
+        <div class="campo">
+          <label>💧 Galões de água que saíram</label>
+          <input type="number" id="sdAgua" min="0" inputmode="numeric" placeholder="0">
+        </div>
+        <button class="btn btn-laranja" id="btnRegistrarSaida" style="padding:13px;">REGISTRAR SAÍDA</button>
+        <div id="listaSaidas" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="cartao">
+        <h2>💸 Gastos da viagem (por rota)</h2>
+        <div class="dica-clientes">A conferência de cada cliente você faz no "💰 Receber" da aba Vendas. Aqui só lança os gastos da viagem e fecha a rota.</div>
+        <div class="lista-clientes" id="chipsRotaEntrega" style="max-height:100px;"></div>
+        <div class="campo">
+          <label>Quem foi o motorista?</label>
+          <div class="lista-clientes" id="chipsMotoristaAcerto" style="max-height:60px; margin-bottom:6px;"></div>
+          <input type="text" id="reMotoristaNome" placeholder="Nome do motorista">
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>Data da entrega</label>
+            <input type="date" id="reData">
+          </div>
+          <div class="campo">
+            <label>🚚 Motorista (R$)</label>
+            <input type="number" id="reMotorista" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>💪 Ajudante (R$)</label>
+            <input type="number" id="reAjudante" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+          <div class="campo">
+            <label>⛽ Combustível (R$)</label>
+            <input type="number" id="reCombustivel" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+        </div>
+        <div class="campo">
+          <label>📦 Outros gastos da viagem (R$)</label>
+          <input type="number" id="reOutros" step="0.01" inputmode="decimal" placeholder="0,00">
+        </div>
+        <div class="dica-clientes" id="reInfo"></div>
+        <button class="btn btn-verde" id="btnGastosRota">✓ LANÇAR GASTOS DA ROTA</button>
+        <button class="btn btn-cinza" id="btnEntregarTudo" style="margin-top:8px; padding:13px; font-size:0.98rem;">📦 Marcar pendentes desta rota como entregues (os que já pagaram antes)</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TELA: GASTOS -->
+  <div class="tela" id="tela-gastos">
+    <div id="gastosSemSemana" class="vazio" style="display:none">Abra uma semana primeiro (aba Semana).</div>
+    <div id="gastosConteudo" style="display:none">
+      <div class="cartao">
+        <h2>🔧 Lançar gasto extra</h2>
+        <div style="font-size:0.88rem; color:var(--cinza); margin-bottom:10px;">Manutenção, peça, conserto, coisas fora da rota. Os gastos da entrega você lança junto com a venda; os da puxada, junto com a compra.</div>
+        <div class="atalhos-gasto" id="atalhosGasto">
+          <button data-cat="Manutenção">🔧 Manutenção</button>
+          <button data-cat="Outros">📦 Outros</button>
+        </div>
+        <div class="campo" id="campoDescOutro" style="display:none">
+          <label>Descrição</label>
+          <input type="text" id="gDesc" placeholder="Ex.: almoço, pedágio, manutenção...">
+        </div>
+        <div class="linha2">
+          <div class="campo">
+            <label>Data do gasto</label>
+            <input type="date" id="gData">
+          </div>
+          <div class="campo">
+            <label>Valor (R$)</label>
+            <input type="number" id="gValor" step="0.01" inputmode="decimal" placeholder="0,00">
+          </div>
+        </div>
+        <button class="btn btn-laranja" id="btnAddGasto">ADICIONAR GASTO</button>
+      </div>
+      <div class="titulo-secao"><span>Gastos da semana</span><b id="totalGastos">R$ 0,00</b></div>
+      <div id="listaGastos"><div class="vazio">Nenhum gasto lançado.</div></div>
+    </div>
+  </div>
+
+  <!-- TELA: FIADO -->
+  <div class="tela" id="tela-fiado">
+    <div class="titulo-secao"><span>🕐 Quem está devendo</span><b id="totalFiado" style="color:var(--vermelho)">R$ 0,00</b></div>
+    <div id="listaFiado"><div class="vazio">Ninguém devendo. 🎉</div></div>
+  </div>
+
+  <!-- TELA: ROTAS (por dia) -->
+  <div class="tela" id="tela-rotas">
+    <div id="rotasSemSemana" class="vazio" style="display:none">Nenhuma semana registrada ainda.</div>
+    <div id="rotasConteudo" style="display:none">
+      <div class="lista-clientes" id="selSemanaRotas" style="max-height:80px;"></div>
+      <div class="titulo-secao"><span>📍 Rota de cada dia</span></div>
+      <div id="listaDias"><div class="vazio">Sem movimento ainda.</div></div>
+    </div>
+  </div>
+
+  <!-- TELA: RESUMO -->
+  <div class="tela" id="tela-resumo">
+    <div id="resumoSemSemana" class="vazio" style="display:none">Nenhuma semana registrada ainda.</div>
+    <div id="resumoConteudo" style="display:none">
+      <div class="lista-clientes" id="selSemanaResumo" style="max-height:80px;"></div>
+      <div id="avisoPendencias"></div>
+      <div class="titulo-secao"><span>🔥 Gás</span></div>
+      <div class="painel" id="painelGas"></div>
+      <div class="titulo-secao"><span>💧 Água</span></div>
+      <div class="painel" id="painelAgua"></div>
+      <div class="titulo-secao"><span>📊 Geral da semana</span></div>
+      <div class="painel" id="painelGeral"></div>
+      <button class="btn btn-azul" id="btnExportar" style="padding:14px; font-size:1rem;">📊 Exportar semana (CSV)</button>
+
+      <div class="titulo-secao" style="margin-top:24px;"><span>📆 Análise do mês</span></div>
+      <div class="lista-clientes" id="selMes" style="max-height:60px;"></div>
+      <div class="painel" id="painelMes"></div>
+    </div>
+  </div>
+
+</main>
+
+<nav>
+  <button class="ativa" data-tela="semana"><span class="ico">📅</span>Semana</button>
+  <button data-tela="vendas"><span class="ico">🛒</span>Vendas</button>
+  <button data-tela="saida"><span class="ico">🚚</span>Saída</button>
+  <button data-tela="gastos"><span class="ico">💸</span>Gastos</button>
+  <button data-tela="fiado"><span class="ico">🕐</span>Fiado</button>
+  <button data-tela="rotas"><span class="ico">📍</span>Rotas</button>
+  <button data-tela="resumo"><span class="ico">📈</span>Resumo</button>
+</nav>
+
+<!-- MODAL: VENDA / PRÉ-VENDA -->
+<div class="modal-fundo" id="modalVenda">
+  <div class="modal">
+    <h2>Venda / Pré-venda</h2>
+    <div class="escolha-prod" id="prodVenda">
+      <button data-p="gas">🔥 Botijão</button>
+      <button data-p="agua">💧 Água</button>
+    </div>
+    <div class="dica-clientes" id="dicaClientes">Escolha o produto pra ver seus clientes.</div>
+    <div class="lista-clientes" id="listaClientes"></div>
+    <div class="campo" id="campoTipoGas" style="display:none">
+      <label>Tipo da venda</label>
+      <div class="escolha-pag" id="escolhaTipoGas">
+        <button data-t="normal" class="sel">Gás normal</button>
+        <button data-t="povo">🇧🇷 Gás do Povo</button>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Cliente</label>
+      <input type="text" id="vCliente" placeholder="Toque num nome acima ou digite um novo">
+    </div>
+    <div class="campo">
+      <label>Rota / cidade</label>
+      <div class="lista-clientes" id="listaRotas" style="max-height:90px; margin-bottom:8px;"></div>
+      <input type="text" id="vRota" placeholder="Ex.: Rota Guaratinga, Cidade Itabela...">
+    </div>
+    <div class="linha2">
+      <div class="campo">
+        <label>Quantidade</label>
+        <input type="number" id="vQtd" min="1" value="1" inputmode="numeric">
+      </div>
+      <div class="campo">
+        <label>Preço por unidade (R$)</label>
+        <input type="number" id="vPreco" step="0.01" inputmode="decimal">
+      </div>
+    </div>
+    <div class="linha2">
+      <div class="campo">
+        <label>Data (da venda/pré-venda)</label>
+        <input type="date" id="vData">
+      </div>
+      <div class="campo">
+        <label>Já foi entregue?</label>
+        <select id="vEntregue">
+          <option value="nao">📋 Ainda não (pré-venda)</option>
+          <option value="sim">📦 Sim, entregue</option>
+        </select>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Pagamento</label>
+      <select id="vStatus">
+        <option value="pago">✅ Já pagou (antes de receber)</option>
+        <option value="entrega">🚚 Paga quando receber</option>
+        <option value="prazo">🕐 Pediu prazo (fiado)</option>
+      </select>
+    </div>
+    <div class="campo" id="campoFormaPag">
+      <label>Como pagou?</label>
+      <div class="escolha-pag" id="escolhaPag">
+        <button data-f="Pix">Pix</button>
+        <button data-f="Dinheiro">Dinheiro</button>
+        <button data-f="Cartão">Cartão</button>
+      </div>
+    </div>
+    <button type="button" id="btnMostrarGastosEntrega" style="display:none"></button>
+    <div id="secGastosEntrega" style="display:none"></div>
+    <div class="botoes">
+      <button class="btn btn-cinza" id="btnVCancelar">Cancelar</button>
+      <button class="btn btn-verde" id="btnVSalvar">✓ SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RECEBER -->
+<div class="modal-fundo" id="modalPagar">
+  <div class="modal">
+    <h2>Receber pagamento</h2>
+    <p id="pagInfo" style="margin-bottom:12px; font-size:1.02rem;"></p>
+    <div class="linha2">
+      <div class="campo">
+        <label>Quantos o cliente ficou?</label>
+        <input type="number" id="pagQtd" min="1" inputmode="numeric">
+      </div>
+      <div class="campo">
+        <label>Total a receber</label>
+        <div id="pagTotal" style="font-size:1.35rem; font-weight:700; padding:12px 2px; color:var(--verde);">—</div>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Como pagou?</label>
+      <div class="escolha-pag" id="escolhaPag2">
+        <button data-f="Pix">Pix</button>
+        <button data-f="Dinheiro">Dinheiro</button>
+        <button data-f="Cartão">Cartão</button>
+        <button data-f="Fiado" style="border-color:#e0c877; color:var(--amarelo);">🕐 Fiado</button>
+      </div>
+    </div>
+    <div class="campo" id="campoCobranca" style="display:none">
+      <label>Data da cobrança (quando vai cobrar)</label>
+      <input type="date" id="pagCobranca">
+    </div>
+    <div class="botoes">
+      <button class="btn btn-cinza" id="btnPagCancelar">Cancelar</button>
+      <button class="btn btn-verde" id="btnPagConfirmar">✓ RECEBIDO</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FECHAR SEMANA -->
+<div class="modal-fundo" id="modalFechar">
+  <div class="modal">
+    <h2>🔒 Fechar a semana</h2>
+    <div id="fechResumo" style="font-size:0.98rem; line-height:1.7; margin-bottom:8px;"></div>
+    <div class="botoes">
+      <button class="btn btn-cinza" id="btnFCancelar">Voltar</button>
+      <button class="btn btn-vermelho" id="btnFConfirmar">🔒 FECHAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVO CLIENTE -->
+<div class="modal-fundo" id="modalCliente">
+  <div class="modal">
+    <h2>👤 Cadastrar cliente</h2>
+    <div class="campo">
+      <label>Nome do cliente</label>
+      <input type="text" id="ncNome" placeholder="Ex.: Dona Maria">
+    </div>
+    <label style="display:block; font-size:0.9rem; color:var(--cinza); margin-bottom:6px;">Cliente de quê? (pode marcar os dois)</label>
+    <div class="escolha-prod" style="margin-bottom:8px;">
+      <button type="button" id="ncGas">🔥 Botijão</button>
+      <button type="button" id="ncAgua">💧 Água</button>
+    </div>
+    <div class="campo" id="ncCampoPrecoGas" style="display:none">
+      <label>Preço do botijão pra ele (R$) — pode deixar vazio</label>
+      <input type="number" id="ncPrecoGas" step="0.01" inputmode="decimal" placeholder="Ex.: 110,00">
+    </div>
+    <div class="campo" id="ncCampoPrecoAgua" style="display:none">
+      <label>Preço do galão pra ele (R$) — pode deixar vazio</label>
+      <input type="number" id="ncPrecoAgua" step="0.01" inputmode="decimal" placeholder="Ex.: 12,00">
+    </div>
+    <div class="botoes">
+      <button class="btn btn-cinza" id="btnNcCancelar">Cancelar</button>
+      <button class="btn btn-verde" id="btnNcSalvar">✓ CADASTRAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PRÉ-VENDA EM LOTE -->
+<div class="modal-fundo" id="modalLote">
+  <div class="modal" style="max-width:520px;">
+    <h2>📋 Pré-venda em lote</h2>
+    <div class="escolha-prod" id="prodLote">
+      <button data-p="gas">🔥 Botijão</button>
+      <button data-p="agua">💧 Água</button>
+    </div>
+    <div class="linha2">
+      <div class="campo">
+        <label>Rota / cidade</label>
+        <input type="text" id="loteRota" placeholder="Ex.: Saquaira">
+      </div>
+      <div class="campo">
+        <label>Data</label>
+        <input type="date" id="loteData">
+      </div>
+    </div>
+    <div class="lista-clientes" id="chipsRotaLote" style="max-height:76px; grid-template-columns:repeat(3,1fr);"></div>
+    <div class="dica-clientes">Preencha a quantidade só de quem vai levar. Quem ficar em 0 não entra na lista.</div>
+    <div id="listaLote" style="margin-bottom:8px;"></div>
+    <div class="botoes">
+      <button class="btn btn-cinza" id="btnLoteCancelar">Cancelar</button>
+      <button class="btn btn-verde" id="btnLoteSalvar">✓ SALVAR PRÉ-VENDAS</button>
+    </div>
+  </div>
+</div>
+
+<!-- ÁREA DE IMPRESSÃO -->
+<div id="areaImpressao"></div>
+
+<script>
+(function(){
+  var CHAVE = "gas-agua-semanal-v4";
+  var dados = { semanaAtiva:null, historico:[], clientes:{ gas:{}, agua:{} } };
+  var CLIENTES_GAS_INICIAIS = ["Netinha","Chico","Gil","Pio","João Trevo","Moises","Dadau","Valdomiro","Luciano","Ubiraci","Dhão","Miguel","Jajal","Jó Caobi","Liziane","Antonio M","Catia 02","Benedito","Eliseu","Gaso M","M. Litoral","Lurdes","Vado","Zinga","Jorge","Junio","Nilson","Dona Nana","Nailson","Leticia","Mario","Mercado JM","Zé Flúor","Beca","Enoque","Sebastião","Nega","Petisco","Da Hora","Dely","Afasto"];
+  function garantirClientes(){
+    if (!dados.clientes) dados.clientes = { gas:{}, agua:{} };
+    if (!dados.clientes.gas) dados.clientes.gas = {};
+    if (!dados.clientes.agua) dados.clientes.agua = {};
+    // aproveita clientes de vendas já lançadas (semana ativa e histórico)
+    var todas = [];
+    if (dados.semanaAtiva) todas = todas.concat(dados.semanaAtiva.vendas||[]);
+    (dados.historico||[]).forEach(function(h){ todas = todas.concat(h.vendas||[]); });
+    todas.forEach(function(v){
+      if (v.cliente && v.produto && !dados.clientes[v.produto][v.cliente]){
+        dados.clientes[v.produto][v.cliente] = { preco:v.preco };
+      }
+    });
+    // carrega a lista da folha de entregas (uma vez só; respeita quem você tirar depois)
+    if (!dados.clientesGasSemeados){
+      CLIENTES_GAS_INICIAIS.forEach(function(nome){
+        if (!dados.clientes.gas[nome]) dados.clientes.gas[nome] = { preco:null };
+      });
+      dados.clientesGasSemeados = true;
+    }
+  }
+  var PROD = {
+    gas:  { nome:"Gás",  emoji:"🔥", un:"botijão", unPl:"botijões" },
+    agua: { nome:"Água", emoji:"💧", un:"galão",   unPl:"galões" }
+  };
+
+  // ================= STORAGE =================
+  // Dentro do Claude usa window.storage; no navegador do tablet usa a memória local (funciona sem internet).
+  var temStorageClaude = (typeof window.storage === "object" && window.storage && typeof window.storage.get === "function");
+  async function lerDados(){
+    if (temStorageClaude){
+      try { var r = await window.storage.get(CHAVE); if (r && r.value) return r.value; } catch(e){}
+      return null;
+    }
+    try { return localStorage.getItem(CHAVE); } catch(e){ return null; }
+  }
+  async function gravarDados(txt){
+    if (temStorageClaude){
+      try { await window.storage.set(CHAVE, txt); return true; } catch(e){ return false; }
+    }
+    try { localStorage.setItem(CHAVE, txt); return true; } catch(e){ return false; }
+  }
+  async function carregar(){
+    var v = await lerDados();
+    if (v){ try { dados = JSON.parse(v); } catch(e){} }
+    garantirClientes();
+    prepararAbertura();
+    renderTudo();
+  }
+  async function persistir(){
+    var ok = await gravarDados(JSON.stringify(dados));
+    if (!ok) alert("Não consegui salvar neste navegador. Não use aba anônima/privada e tente de novo.");
+  }
+
+  // ================= BAIXAR ARQUIVO =================
+  // Dentro do Claude precisa da permissao "downloads"; no navegador do tablet baixa direto.
+  var downloadsClaude = null;
+  if (window.claude && typeof window.claude.use === "function"){
+    try { downloadsClaude = window.claude.use("downloads"); } catch(e){ downloadsClaude = null; }
+  }
+  async function baixarArquivo(nomeArq, blob){
+    var dl = downloadsClaude ? await downloadsClaude : null;
+    if (dl){
+      await dl.save({ filename:nomeArq, data:blob });
+      return "claude";
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArq;
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    return "navegador";
+  }
+
+  // ================= HELPERS =================
+  function s(){ return dados.semanaAtiva; }
+  // Semana em visão nas abas Rotas/Resumo: "atual" ou id de semana fechada
+  var semanaVisaoId = "atual";
+  function semanaVisao(){
+    if (semanaVisaoId==="atual") return s() || (dados.historico.length ? dados.historico[dados.historico.length-1] : null);
+    return dados.historico.find(function(h){return String(h.id)===String(semanaVisaoId);}) || s();
+  }
+  function todasSemanas(){
+    var t = dados.historico.slice();
+    if (s()) t.push(s());
+    return t;
+  }
+  function findVenda(id){
+    var todas = todasSemanas();
+    for (var i=0;i<todas.length;i++){
+      var v = (todas[i].vendas||[]).find(function(x){return String(x.id)===String(id);});
+      if (v) return { v:v, semana:todas[i] };
+    }
+    return null;
+  }
+  function renderSeletorSemana(){
+    ["selSemanaRotas","selSemanaResumo"].forEach(function(cid){
+      var el = document.getElementById(cid);
+      if (!el) return;
+      el.innerHTML = "";
+      var opcoes = [];
+      if (s()) opcoes.push({ id:"atual", label:"Semana atual" });
+      dados.historico.slice().reverse().forEach(function(h){
+        opcoes.push({ id:String(h.id), label:fmtData(h.inicio)+" a "+fmtData(h.fim) });
+      });
+      if (opcoes.length===0) return;
+      opcoes.forEach(function(op){
+        var sel = (semanaVisaoId==="atual" && op.id==="atual") || String(semanaVisaoId)===op.id;
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip"+(sel?" escolhido":"");
+        chip.innerHTML = '<span class="nome-chip">📅 '+op.label+'</span>';
+        chip.addEventListener("click", function(){
+          semanaVisaoId = op.id;
+          renderSeletorSemana(); renderRotas(); renderResumo();
+        });
+        el.appendChild(chip);
+      });
+    });
+  }
+  function fmt(v){ return "R$ " + Number(v||0).toFixed(2).replace(".", ","); }
+  function fmtData(iso){
+    if(!iso) return "—";
+    var p = iso.split("-");
+    return p[2]+"/"+p[1];
+  }
+  function fmtDataFull(iso){
+    if(!iso) return "—";
+    var p = iso.split("-");
+    return p[2]+"/"+p[1]+"/"+p[0];
+  }
+  function diaSemana(iso){
+    var nomes = ["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+    var d = new Date(iso+"T12:00:00");
+    return nomes[d.getDay()];
+  }
+  function esc(x){
+    return String(x==null?"":x).replace(/[&<>"]/g,function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+    });
+  }
+  function hojeISO(){
+    var d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+
+  // ================= CÁLCULO =================
+  function calcProduto(sem, p){
+    var ini = (sem.estoqueIni && sem.estoqueIni[p]) || {qtd:0, custo:0};
+    var compras = (sem.compras||[]).filter(function(c){return c.produto===p;});
+    var vendas = (sem.vendas||[]).filter(function(v){return v.produto===p;});
+    var compQtd = compras.reduce(function(a,c){return a+c.qtd;},0);
+    function puxadaDe(c){ return (c.gMotorista||0)+(c.gCombustivel||0)+(c.gOutros||0); }
+    var puxadaTotal = compras.reduce(function(a,c){return a+puxadaDe(c);},0);
+    var compVal = compras.reduce(function(a,c){return a+c.qtd*c.preco;},0) + puxadaTotal;
+    var disponivel = ini.qtd + compQtd;
+    var custoMedio = disponivel>0 ? (ini.qtd*ini.custo + compVal)/disponivel : 0;
+    var vendidos=0, receita=0, recebido=0, aReceber=0, entregues=0;
+    var povoQtd=0, povoReceita=0;
+    var porForma = {Pix:0, Dinheiro:0, "Cartão":0};
+    vendas.forEach(function(v){
+      var tot = v.qtd*v.preco;
+      vendidos += v.qtd; receita += tot;
+      if (v.povo){ povoQtd += v.qtd; povoReceita += tot; }
+      if (v.entregue) entregues += v.qtd;
+      if (v.pago){ recebido+=tot; if(porForma[v.forma]!==undefined) porForma[v.forma]+=tot; }
+      else aReceber += tot;
+    });
+    var cmv = vendidos*custoMedio;
+    var lucroBruto = receita - cmv;
+    var precoMedio = vendidos>0 ? receita/vendidos : 0;
+    return {
+      ini:ini, compQtd:compQtd, compVal:compVal, puxadaTotal:puxadaTotal, disponivel:disponivel,
+      custoMedio:custoMedio, vendidos:vendidos, entregues:entregues,
+      receita:receita, recebido:recebido, aReceber:aReceber, porForma:porForma,
+      cmv:cmv, lucroBruto:lucroBruto, precoMedio:precoMedio,
+      povoQtd:povoQtd, povoReceita:povoReceita,
+      povoLucroBruto: povoReceita - povoQtd*custoMedio,
+      lucroUnid: vendidos>0 ? lucroBruto/vendidos : 0,
+      estoqueFinal: disponivel - vendidos
+    };
+  }
+  function calcGeral(sem){
+    var g = calcProduto(sem,"gas");
+    var a = calcProduto(sem,"agua");
+    var gastos = (sem.gastos||[]).reduce(function(x,y){return x+Number(y.valor||0);},0);
+    var receita = g.receita + a.receita;
+    var lucroBruto = g.lucroBruto + a.lucroBruto;
+    var lucro = lucroBruto - gastos;
+    var vendidos = g.vendidos + a.vendidos;
+    return {
+      gas:g, agua:a, gastos:gastos, receita:receita,
+      recebido:g.recebido+a.recebido, aReceber:g.aReceber+a.aReceber,
+      porForma:{
+        Pix:g.porForma.Pix+a.porForma.Pix,
+        Dinheiro:g.porForma.Dinheiro+a.porForma.Dinheiro,
+        "Cartão":g.porForma["Cartão"]+a.porForma["Cartão"]
+      },
+      lucroBruto:lucroBruto, lucro:lucro,
+      lucroUnid: vendidos>0 ? lucro/vendidos : 0,
+      vendidos:vendidos
+    };
+  }
+
+  // ================= NAVEGAÇÃO =================
+  document.querySelectorAll("nav button").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll("nav button").forEach(function(x){x.classList.remove("ativa");});
+      b.classList.add("ativa");
+      document.querySelectorAll(".tela").forEach(function(t){t.classList.remove("ativa");});
+      document.getElementById("tela-"+b.dataset.tela).classList.add("ativa");
+    });
+  });
+
+  // ================= ESCOLHA DE PRODUTO (componentes) =================
+  function ligarEscolhaProd(idContainer, aoEscolher){
+    var estado = { valor:null };
+    document.querySelectorAll("#"+idContainer+" button").forEach(function(b){
+      b.addEventListener("click", function(){
+        estado.valor = b.dataset.p;
+        document.querySelectorAll("#"+idContainer+" button").forEach(function(x){
+          x.classList.remove("sel-gas","sel-agua");
+        });
+        b.classList.add(b.dataset.p==="gas"?"sel-gas":"sel-agua");
+        if (aoEscolher) aoEscolher(estado.valor);
+      });
+    });
+    estado.definir = function(p){
+      estado.valor = p;
+      document.querySelectorAll("#"+idContainer+" button").forEach(function(x){
+        x.classList.remove("sel-gas","sel-agua");
+        if (x.dataset.p===p) x.classList.add(p==="gas"?"sel-gas":"sel-agua");
+      });
+    };
+    return estado;
+  }
+  var prodCompra = ligarEscolhaProd("prodCompra");
+  var prodVenda = ligarEscolhaProd("prodVenda", function(p){
+    renderListaClientes(p);
+    document.getElementById("campoTipoGas").style.display = p==="gas" ? "block" : "none";
+  });
+
+  // Digitou o nome? Puxa o preço do cliente também (sem diferenciar maiúsculas/acentos)
+  function normalizarNome(n){
+    return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  }
+  document.getElementById("vCliente").addEventListener("input", function(){
+    var p = prodVenda.valor;
+    if (!p) return;
+    var digitado = normalizarNome(this.value);
+    if (!digitado) return;
+    var nomes = Object.keys(dados.clientes[p]||{});
+    for (var i=0;i<nomes.length;i++){
+      if (normalizarNome(nomes[i])===digitado){
+        var info = dados.clientes[p][nomes[i]];
+        if (info && info.preco) document.getElementById("vPreco").value = info.preco;
+        break;
+      }
+    }
+  });
+
+  // ===== Tipo da venda de gás (normal x Gás do Povo) =====
+  var tipoGasSel = "normal";
+  function definirTipoGas(t){
+    tipoGasSel = t==="povo" ? "povo" : "normal";
+    document.querySelectorAll("#escolhaTipoGas button").forEach(function(b){
+      b.classList.toggle("sel", b.dataset.t===tipoGasSel);
+    });
+  }
+  document.querySelectorAll("#escolhaTipoGas button").forEach(function(b){
+    b.addEventListener("click", function(){ definirTipoGas(b.dataset.t); });
+  });
+
+  // ===== Lista de clientes no modal de venda =====
+  function renderListaClientes(p){
+    var el = document.getElementById("listaClientes");
+    var dica = document.getElementById("dicaClientes");
+    el.innerHTML = "";
+    if (!p){ dica.textContent = "Escolha o produto pra ver seus clientes."; return; }
+    var nomes = Object.keys(dados.clientes[p]||{}).sort(function(a,b){ return a.localeCompare(b,"pt-BR"); });
+    if (nomes.length===0){
+      dica.textContent = "Nenhum cliente de "+(p==="gas"?"gás":"água")+" ainda. Digite o nome abaixo — ele entra na lista quando salvar.";
+      return;
+    }
+    dica.textContent = "Toque no cliente (preenche o preço dele) ou digite um novo:";
+    var atual = document.getElementById("vCliente").value.trim();
+    nomes.forEach(function(nome){
+      var info = dados.clientes[p][nome];
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip"+(nome===atual?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">'+esc(nome)+'</span>'+(info && info.preco ? '<span class="preco-chip">'+fmt(info.preco)+'</span>' : '')+
+        '<span class="x-chip" data-x="1">✕</span>';
+      chip.addEventListener("click", async function(ev){
+        if (ev.target && ev.target.dataset && ev.target.dataset.x){
+          if (confirm("Tirar \""+nome+"\" da lista de clientes de "+(p==="gas"?"gás":"água")+"? (As vendas já lançadas continuam.)")){
+            delete dados.clientes[p][nome];
+            await persistir();
+            renderListaClientes(p);
+          }
+          return;
+        }
+        document.getElementById("vCliente").value = nome;
+        document.getElementById("vQtd").value = 1;
+        document.getElementById("vPreco").value = (info && info.preco) ? info.preco : "";
+        renderListaClientes(p);
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  // ================= RENDER =================
+  function renderTudo(){
+    var sem = s();
+    document.getElementById("semanaInfo").textContent = sem
+      ? "Semana "+fmtData(sem.inicio)+" a "+fmtData(sem.fim)
+      : "Nenhuma semana aberta";
+    document.getElementById("semAberta").style.display = sem ? "none" : "block";
+    document.getElementById("semAtiva").style.display = sem ? "block" : "none";
+    ["vendas","saida","gastos"].forEach(function(t){
+      document.getElementById(t+"SemSemana").style.display = sem ? "none" : "block";
+      document.getElementById(t+"Conteudo").style.display = sem ? "block" : "none";
+    });
+    var temVisao = !!(sem || dados.historico.length>0);
+    ["rotas","resumo"].forEach(function(t){
+      document.getElementById(t+"SemSemana").style.display = temVisao ? "none" : "block";
+      document.getElementById(t+"Conteudo").style.display = temVisao ? "block" : "none";
+    });
+    renderHistorico();
+    renderFiado();
+    renderSeletorSemana();
+    if (temVisao){ renderRotas(); renderResumo(); }
+    if (!sem) return;
+    renderPainelSemana(); renderCompras(); renderVendas(); renderSaida(); renderEntregaRota(); renderGastos();
+    renderChipsMotorista("chipsMotoristaCompra","cpMotoristaNome");
+    renderChipsMotorista("chipsMotoristaAcerto","reMotoristaNome");
+    renderChipsMotorista("chipsMotoristaSaida","sdMotoristaNome");
+    renderChipsLista("chipsFornecedor","cpFornecedor","fornecedores","🏪");
+  }
+  function box(rot,num,classe,extra){
+    return '<div class="box '+(extra||"")+'"><div class="rot">'+rot+'</div><div class="num '+(classe||"")+'">'+num+'</div></div>';
+  }
+  function boxDestaque(rot,num,neg){
+    return '<div class="box destaque"><div class="rot">'+rot+'</div><div class="num'+(neg?' neg':'')+'">'+num+'</div></div>';
+  }
+
+  function renderPainelSemana(){
+    var sem = s();
+    var g = calcProduto(sem,"gas"), a = calcProduto(sem,"agua");
+    document.getElementById("painelSemana").innerHTML =
+      box("🔥 Estoque de botijão", g.estoqueFinal+" (de "+g.disponivel+")", "", "b-gas") +
+      box("💧 Estoque de água", a.estoqueFinal+" (de "+a.disponivel+")", "", "b-agua") +
+      box("🔥 Vendidos", g.vendidos, "", "b-gas") +
+      box("💧 Vendidos", a.vendidos, "", "b-agua") +
+      box("🔥 Custo médio (com puxadas)", g.disponivel>0?fmt(g.custoMedio)+"/botijão":"—", "", "b-gas") +
+      box("💧 Custo médio (com puxadas)", a.disponivel>0?fmt(a.custoMedio)+"/galão":"—", "", "b-agua");
+  }
+
+  function renderCompras(){
+    var sem = s();
+    var el = document.getElementById("listaCompras");
+    var total = (sem.compras||[]).reduce(function(x,c){return x+c.qtd*c.preco+(c.gMotorista||0)+(c.gCombustivel||0)+(c.gOutros||0);},0);
+    document.getElementById("totalCompras").textContent = fmt(total);
+    if (!sem.compras || sem.compras.length===0){ el.innerHTML='<div class="vazio">Nenhuma compra lançada.</div>'; return; }
+    el.innerHTML="";
+    sem.compras.slice().reverse().forEach(function(c){
+      var P = PROD[c.produto];
+      var puxada = (c.gMotorista||0)+(c.gCombustivel||0)+(c.gOutros||0);
+      var totalCompra = c.qtd*c.preco + puxada;
+      var custoReal = c.qtd>0 ? totalCompra/c.qtd : 0;
+      var d = document.createElement("div");
+      d.className="item-linha";
+      var detPuxada = "";
+      if (puxada>0){
+        var partes = [];
+        if (c.gMotorista>0) partes.push("🚚 "+(c.gMotoristaNome?esc(c.gMotoristaNome)+" ":"Motorista ")+fmt(c.gMotorista));
+        if (c.gCombustivel>0) partes.push("⛽ "+fmt(c.gCombustivel));
+        if (c.gOutros>0) partes.push("📦 "+fmt(c.gOutros));
+        detPuxada = '<div class="il-sub">puxada: '+partes.join(" · ")+'</div>';
+      }
+      d.innerHTML='<div class="il-desc">'+P.emoji+' '+c.qtd+' '+(c.qtd>1?P.unPl:P.un)+' × '+fmt(c.preco)+
+        '<div class="il-sub">'+diaSemana(c.data)+', '+fmtData(c.data)+(c.fornecedor?' · 🏪 '+esc(c.fornecedor):'')+'</div>'+
+        detPuxada+
+        (puxada>0?'<div class="il-sub" style="color:var(--verde); font-weight:700;">= '+fmt(custoReal)+' por '+P.un+' (com a puxada)</div>':'')+
+        '</div>'+
+        '<div class="il-valor">'+fmt(totalCompra)+'</div>'+
+        '<button class="b-apagar" data-cid="'+c.id+'" style="border:none;background:none;color:var(--cinza);font-size:1.2rem;cursor:pointer">✕</button>';
+      el.appendChild(d);
+    });
+  }
+
+  var filtroVendas = "todos";
+  document.querySelectorAll("#filtroProd button").forEach(function(b){
+    b.addEventListener("click", function(){
+      filtroVendas = b.dataset.f;
+      document.querySelectorAll("#filtroProd button").forEach(function(x){x.classList.toggle("sel",x===b);});
+      renderVendas();
+    });
+  });
+
+  function renderVendas(){
+    var sem = s(); if(!sem) return;
+    var el = document.getElementById("listaVendas");
+    var vendas = sem.vendas||[];
+    var filtradas = vendas.filter(function(v){
+      if (filtroVendas==="todos") return true;
+      if (filtroVendas==="pendentes") return !v.entregue;
+      return v.produto===filtroVendas;
+    });
+    document.getElementById("qtdVendas").textContent = filtradas.length;
+    if (filtradas.length===0){ el.innerHTML='<div class="vazio">Nada aqui.</div>'; return; }
+    el.innerHTML="";
+    filtradas.slice().reverse().forEach(function(v){
+      var P = PROD[v.produto];
+      var selo = v.pago
+        ? '<span class="selo pago" data-ac="despagar" data-id="'+v.id+'" style="cursor:pointer">✅ Pago ('+esc(v.forma)+') ✕</span>'
+        : (v.status==="prazo" ? '<span class="selo prazo">🕐 Prazo — deve '+fmt(v.qtd*v.preco)+(v.cobranca?' · cobrar '+fmtData(v.cobranca):'')+'</span>'
+                              : '<span class="selo entrega">🚚 Paga na entrega</span>');
+      var seloEnt = v.entregue
+        ? '<span class="selo entregue" data-ac="desentregar" data-id="'+v.id+'" style="cursor:pointer">📦 Entregue ✕</span>'
+        : '<span class="selo pendente">📋 Pré-venda / a entregar</span>';
+      var seloPovo = v.povo ? '<span class="selo povo">🇧🇷 Gás do Povo</span>' : '';
+      var acoes = "";
+      if (!v.entregue) acoes += '<button class="b-entregue" data-ac="entregue" data-id="'+v.id+'">📦 Entregue</button>';
+      if (!v.pago) acoes += '<button class="b-pagar" data-ac="pagar" data-id="'+v.id+'">💰 Receber</button>';
+      acoes += '<button class="b-apagar" data-ac="apagar" data-id="'+v.id+'">✕</button>';
+      var d = document.createElement("div");
+      d.className = "venda p-"+v.produto;
+      d.innerHTML =
+        '<div class="topo"><div><div class="cliente">'+P.emoji+' '+esc(v.cliente||"Cliente")+'</div>'+
+        '<div class="det">'+v.qtd+' '+(v.qtd>1?P.unPl:P.un)+' × '+fmt(v.preco)+' · '+diaSemana(v.data)+' '+fmtData(v.data)+(v.rota?' · 📍 '+esc(v.rota):'')+'</div>'+
+        selo+seloEnt+seloPovo+'</div>'+
+        '<div class="valor">'+fmt(v.qtd*v.preco)+'</div></div>'+
+        '<div class="acoes">'+acoes+'</div>';
+      el.appendChild(d);
+    });
+  }
+
+  function renderGastos(){
+    var sem = s(); if(!sem) return;
+    var el = document.getElementById("listaGastos");
+    var total = (sem.gastos||[]).reduce(function(a,g){return a+Number(g.valor||0);},0);
+    document.getElementById("totalGastos").textContent = fmt(total);
+    if (!sem.gastos || sem.gastos.length===0){ el.innerHTML='<div class="vazio">Nenhum gasto lançado.</div>'; return; }
+    el.innerHTML="";
+    sem.gastos.slice().reverse().forEach(function(g){
+      var d = document.createElement("div");
+      d.className="item-linha";
+      d.innerHTML='<div class="il-desc">'+esc(g.descricao)+(g.rota?' <span style="font-weight:400; color:var(--cinza)">📍 '+esc(g.rota)+'</span>':'')+'<div class="il-sub">'+diaSemana(g.data)+', '+fmtData(g.data)+'</div></div>'+
+        '<div class="il-valor">'+fmt(g.valor)+'</div>'+
+        '<button class="b-apagar" data-gid="'+g.id+'" style="border:none;background:none;color:var(--cinza);font-size:1.2rem;cursor:pointer">✕</button>';
+      el.appendChild(d);
+    });
+  }
+
+  function renderRotas(){
+    var sem = semanaVisao(); if(!sem) return;
+    var el = document.getElementById("listaDias");
+    var g = calcProduto(sem,"gas"), a = calcProduto(sem,"agua");
+    // agrupa por data + rota
+    var dias = {};
+    function dia(dt, rota){
+      var k = dt+"§"+(rota||"");
+      if(!dias[k]) dias[k]={data:dt, rota:rota||"", vGas:0,vAgua:0,recGas:0,recAgua:0,cmvGas:0,cmvAgua:0,gastosList:[],comprasList:[]};
+      return dias[k];
+    }
+    (sem.vendas||[]).forEach(function(v){
+      var d = dia(v.data, v.rota);
+      if (v.produto==="gas"){ d.vGas+=v.qtd; d.recGas+=v.qtd*v.preco; d.cmvGas+=v.qtd*g.custoMedio; }
+      else { d.vAgua+=v.qtd; d.recAgua+=v.qtd*v.preco; d.cmvAgua+=v.qtd*a.custoMedio; }
+    });
+    (sem.gastos||[]).forEach(function(x){ dia(x.data, x.rota||"").gastosList.push(x); });
+    (sem.saidas||[]).forEach(function(sa){
+      var d=dia(sa.data, sa.rota||"");
+      d.sGas=(d.sGas||0)+(sa.gas||0); d.sAgua=(d.sAgua||0)+(sa.agua||0);
+      if (sa.voltaGas!=null){ d.cGas=(d.cGas||0)+(sa.voltaGas||0); d.temVolta=true; }
+      if (sa.voltaAgua!=null){ d.cAgua=(d.cAgua||0)+(sa.voltaAgua||0); d.temVolta=true; }
+      if (sa.motorista) d.motorista = sa.motorista;
+    });
+    (sem.compras||[]).forEach(function(c){ dia(c.data, "").comprasList.push(c); });
+    var chaves = Object.keys(dias).sort();
+    if (chaves.length===0){ el.innerHTML='<div class="vazio">Sem movimento ainda.</div>'; return; }
+    el.innerHTML="";
+    function secao(nome){
+      return '<div style="font-size:0.8rem; font-weight:700; color:var(--cinza); text-transform:uppercase; letter-spacing:0.04em; margin-top:10px; margin-bottom:2px;">'+nome+'</div>';
+    }
+    chaves.forEach(function(k){
+      var d = dias[k];
+      var dt = d.data;
+      var receita = d.recGas + d.recAgua;
+      var cmv = d.cmvGas + d.cmvAgua;
+      var totalGastos = d.gastosList.reduce(function(x,y){return x+Number(y.valor||0);},0);
+      var lucroBruto = receita - cmv;
+      var lucroLiquido = lucroBruto - totalGastos;
+      var div = document.createElement("div");
+      div.className="dia-rota";
+      var linhas = "";
+
+      // ===== CAMINHÃO =====
+      if (d.sGas>0 || d.sAgua>0){
+        linhas += secao("Caminhão");
+        var cargas = [];
+        if (d.sGas>0) cargas.push("🔥 "+d.sGas);
+        if (d.sAgua>0) cargas.push("💧 "+d.sAgua);
+        linhas += '<div class="dr-linha"><span>🛻 Saiu do depósito'+(d.motorista?' ('+esc(d.motorista)+')':'')+'</span><b>'+cargas.join(" · ")+'</b></div>';
+        var devVoltarG = Math.max(0, (d.sGas||0)-d.vGas), devVoltarA = Math.max(0, (d.sAgua||0)-d.vAgua);
+        var voltas = [];
+        if (d.sGas>0) voltas.push("🔥 "+devVoltarG);
+        if (d.sAgua>0) voltas.push("💧 "+devVoltarA);
+        linhas += '<div class="dr-linha"><span>Deveria voltar</span><span>'+voltas.join(" · ")+'</span></div>';
+        if (d.temVolta){
+          var contadas = [];
+          if (d.sGas>0) contadas.push("🔥 "+(d.cGas||0));
+          if (d.sAgua>0) contadas.push("💧 "+(d.cAgua||0));
+          linhas += '<div class="dr-linha"><span>↩️ Voltou contado</span><span>'+contadas.join(" · ")+'</span></div>';
+          var difG = (d.cGas||0)-devVoltarG, difA = (d.cAgua||0)-devVoltarA;
+          if ((d.sGas>0 && difG!==0) || (d.sAgua>0 && difA!==0)){
+            var difs = [];
+            if (d.sGas>0 && difG!==0) difs.push("🔥 "+(difG>0?"+":"")+difG);
+            if (d.sAgua>0 && difA!==0) difs.push("💧 "+(difA>0?"+":"")+difA);
+            linhas += '<div class="dr-linha"><span style="color:var(--vermelho); font-weight:700;">⚠️ Diferença</span><b style="color:var(--vermelho)">'+difs.join(" · ")+'</b></div>';
+          } else {
+            linhas += '<div class="dr-linha"><span style="color:var(--verde); font-weight:700;">✓ Caminhão conferido</span><span style="color:var(--verde)">tudo certo</span></div>';
+          }
+        }
+      }
+
+      // ===== VENDAS =====
+      if (receita>0){
+        linhas += secao("Vendas");
+        if (d.vGas>0) linhas += '<div class="dr-linha"><span>🔥 '+d.vGas+' botijões</span><b>'+fmt(d.recGas)+'</b></div>';
+        if (d.vAgua>0) linhas += '<div class="dr-linha"><span>💧 '+d.vAgua+' galões</span><b>'+fmt(d.recAgua)+'</b></div>';
+        linhas += '<div class="dr-linha"><span>Receita da rota</span><b>'+fmt(receita)+'</b></div>';
+        linhas += '<div class="dr-linha"><span>Custo bruto da mercadoria</span><span>− '+fmt(cmv)+'</span></div>';
+        linhas += '<div class="dr-linha"><span><b>Lucro bruto</b></span><b style="color:'+(lucroBruto>=0?'var(--verde)':'var(--vermelho)')+'">'+fmt(lucroBruto)+'</b></div>';
+      }
+
+      // ===== GASTOS DA ROTA (detalhados) =====
+      if (d.gastosList.length>0){
+        linhas += secao("Gastos da rota");
+        d.gastosList.forEach(function(gx){
+          linhas += '<div class="dr-linha"><span>· '+esc(gx.descricao)+'</span><span>− '+fmt(gx.valor)+'</span></div>';
+        });
+        linhas += '<div class="dr-linha"><span><b>Total de gastos</b></span><b>− '+fmt(totalGastos)+'</b></div>';
+      }
+
+      // ===== LUCRO LÍQUIDO =====
+      if (receita>0 || totalGastos>0){
+        linhas += '<div class="dr-linha dr-lucro" style="font-size:1.08rem;"><span>LUCRO LÍQUIDO DA ROTA</span><span style="color:'+(lucroLiquido>=0?'var(--verde)':'var(--vermelho)')+'">'+fmt(lucroLiquido)+'</span></div>';
+      }
+
+      // ===== COMPRAS DO DIA (detalhadas) =====
+      if (d.comprasList.length>0){
+        linhas += secao("Compras do dia (subida/puxada)");
+        d.comprasList.forEach(function(c){
+          var P = PROD[c.produto];
+          var pux = (c.gMotorista||0)+(c.gCombustivel||0)+(c.gOutros||0);
+          linhas += '<div class="dr-linha"><span>'+P.emoji+' '+c.qtd+' × '+fmt(c.preco)+(c.fornecedor?' ('+esc(c.fornecedor)+')':'')+'</span><span>'+fmt(c.qtd*c.preco)+'</span></div>';
+          if (c.gMotorista>0) linhas += '<div class="dr-linha"><span>· 🚚 Motorista'+(c.gMotoristaNome?' ('+esc(c.gMotoristaNome)+')':'')+'</span><span>'+fmt(c.gMotorista)+'</span></div>';
+          if (c.gCombustivel>0) linhas += '<div class="dr-linha"><span>· ⛽ Combustível</span><span>'+fmt(c.gCombustivel)+'</span></div>';
+          if (c.gOutros>0) linhas += '<div class="dr-linha"><span>· 📦 Outros da puxada</span><span>'+fmt(c.gOutros)+'</span></div>';
+          linhas += '<div class="dr-linha"><span><b>Total da compra</b></span><b>'+fmt(c.qtd*c.preco+pux)+'</b> </div>';
+        });
+        linhas += '<div class="dr-linha"><span style="font-size:0.85rem; color:var(--cinza);">A puxada já entra no custo da mercadoria — não desconta de novo do lucro.</span><span></span></div>';
+      }
+
+      var titulo = '📍 '+diaSemana(dt).charAt(0).toUpperCase()+diaSemana(dt).slice(1)+', '+fmtDataFull(dt)+(d.rota?' — '+esc(d.rota):'');
+      div.innerHTML = '<div class="dr-data">'+titulo+'</div>'+linhas;
+      el.appendChild(div);
+    });
+  }
+
+  function painelProduto(p, c){
+    var P = PROD[p];
+    var extra = p==="gas"?"b-gas":"b-agua";
+    var html = box("Estoque inicial", c.ini.qtd+" ("+fmt(c.ini.custo)+"/"+P.un+")","",extra) +
+      box("Comprados", c.compQtd+" ("+fmt(c.compVal)+")","",extra) +
+      (c.puxadaTotal>0 ? box("Gastos de puxada (já no custo)", fmt(c.puxadaTotal),"",extra) : "") +
+      box("Vendidos", c.vendidos+" de "+c.disponivel,"",extra) +
+      box("Sobra em estoque", c.estoqueFinal,"",extra) +
+      box("Custo médio/"+P.un, fmt(c.custoMedio),"",extra) +
+      box("Preço médio de venda", fmt(c.precoMedio),"",extra) +
+      box("Receita", fmt(c.receita),"",extra) +
+      box("Lucro bruto ("+fmt(c.lucroUnid)+"/"+P.un+")", fmt(c.lucroBruto), c.lucroBruto>=0?"pos":"neg", extra);
+    if (p==="gas" && c.povoQtd>0){
+      var normQtd = c.vendidos - c.povoQtd;
+      var normReceita = c.receita - c.povoReceita;
+      html += box("🇧🇷 Gás do Povo — vendidos", c.povoQtd+" de "+c.vendidos,"",extra) +
+        box("🇧🇷 Receita do Povo", fmt(c.povoReceita),"",extra) +
+        box("🇧🇷 Lucro bruto do Povo", fmt(c.povoLucroBruto), c.povoLucroBruto>=0?"pos":"neg", extra) +
+        box("Gás normal", normQtd+" vendidos · "+fmt(normReceita),"",extra);
+    }
+    return html;
+  }
+
+  function renderResumo(){
+    var sem = semanaVisao(); if(!sem) return;
+    var c = calcGeral(sem);
+    var pend = (sem.vendas||[]).filter(function(v){return !v.pago;}).length;
+    var naoEnt = (sem.vendas||[]).filter(function(v){return !v.entregue;}).length;
+    var avisos = "";
+    if (pend>0) avisos += '<div class="aviso">⚠️ '+pend+' venda(s) sem pagamento — a receber: <b>'+fmt(c.aReceber)+'</b></div>';
+    if (naoEnt>0) avisos += '<div class="aviso">📋 '+naoEnt+' pré-venda(s) ainda não entregue(s)</div>';
+    document.getElementById("avisoPendencias").innerHTML = avisos;
+    document.getElementById("painelGas").innerHTML = painelProduto("gas", c.gas);
+    document.getElementById("painelAgua").innerHTML = painelProduto("agua", c.agua);
+    document.getElementById("painelGeral").innerHTML =
+      box("Receita total", fmt(c.receita)) +
+      box("Gastos (rota/pessoal)", fmt(c.gastos)) +
+      box("Recebido em Pix", fmt(c.porForma.Pix)) +
+      box("Em dinheiro", fmt(c.porForma.Dinheiro)) +
+      box("No cartão", fmt(c.porForma["Cartão"])) +
+      box("A receber (fiado)", fmt(c.aReceber), c.aReceber>0?"neg":"") +
+      boxDestaque("LUCRO LÍQUIDO DA SEMANA", fmt(c.lucro), c.lucro<0) +
+      boxDestaque("Lucro médio por unidade vendida", fmt(c.lucroUnid), c.lucroUnid<0);
+    renderAnaliseMensal();
+  }
+
+  // ===== Análise mensal =====
+  var mesVisao = null;
+  var NOMES_MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  function renderAnaliseMensal(){
+    var todas = todasSemanas();
+    var elSel = document.getElementById("selMes");
+    var elPainel = document.getElementById("painelMes");
+    if (todas.length===0){ elSel.innerHTML=""; elPainel.innerHTML='<div class="vazio">Nenhuma semana ainda.</div>'; return; }
+    // meses presentes (pelo início da semana)
+    var meses = {};
+    todas.forEach(function(sem){ meses[sem.inicio.slice(0,7)] = true; });
+    var listaMeses = Object.keys(meses).sort();
+    if (!mesVisao || !meses[mesVisao]) mesVisao = listaMeses[listaMeses.length-1];
+    elSel.innerHTML = "";
+    listaMeses.forEach(function(m){
+      var p = m.split("-");
+      var label = NOMES_MESES[Number(p[1])-1]+"/"+p[0];
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip"+(m===mesVisao?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">📆 '+label+'</span>';
+      chip.addEventListener("click", function(){ mesVisao=m; renderAnaliseMensal(); });
+      elSel.appendChild(chip);
+    });
+    // soma das semanas do mês
+    var doMes = todas.filter(function(sem){ return sem.inicio.slice(0,7)===mesVisao; });
+    var tot = { semanas:doMes.length, vGas:0, vAgua:0, receita:0, lucro:0, puxada:0, aReceber:0,
+      gastosCat:{ "Motorista":0, "Ajudante":0, "Combustível":0, "Manutenção":0, "Outros":0 } };
+    doMes.forEach(function(sem){
+      var c = calcGeral(sem);
+      tot.vGas += c.gas.vendidos;
+      tot.vAgua += c.agua.vendidos;
+      tot.receita += c.receita;
+      tot.lucro += c.lucro;
+      tot.aReceber += c.aReceber;
+      tot.puxada += (c.gas.puxadaTotal||0)+(c.agua.puxadaTotal||0);
+      (sem.gastos||[]).forEach(function(g){
+        var cat = tot.gastosCat[g.categoria]!==undefined ? g.categoria : "Outros";
+        tot.gastosCat[cat] += Number(g.valor||0);
+      });
+    });
+    var totGastos = 0;
+    Object.keys(tot.gastosCat).forEach(function(k){ totGastos += tot.gastosCat[k]; });
+    elPainel.innerHTML =
+      box("Semanas no mês", tot.semanas) +
+      box("🔥 Botijões vendidos", tot.vGas) +
+      box("💧 Galões vendidos", tot.vAgua) +
+      box("Receita do mês", fmt(tot.receita)) +
+      box("🚚 Motorista (entregas)", fmt(tot.gastosCat["Motorista"])) +
+      box("💪 Ajudante", fmt(tot.gastosCat["Ajudante"])) +
+      box("⛽ Combustível (entregas)", fmt(tot.gastosCat["Combustível"])) +
+      box("🔧 Manutenção", fmt(tot.gastosCat["Manutenção"])) +
+      box("📦 Outros gastos", fmt(tot.gastosCat["Outros"])) +
+      box("Total de gastos de rota", fmt(totGastos)) +
+      box("Puxadas (já no custo)", fmt(tot.puxada)) +
+      box("Fiado a receber", fmt(tot.aReceber), tot.aReceber>0?"neg":"") +
+      boxDestaque("LUCRO LÍQUIDO DO MÊS", fmt(tot.lucro), tot.lucro<0);
+  }
+
+  function renderHistorico(){
+    var el = document.getElementById("historico");
+    if (dados.historico.length===0){ el.innerHTML='<div class="vazio">Nenhuma semana fechada ainda.</div>'; return; }
+    el.innerHTML="";
+    dados.historico.slice().reverse().forEach(function(h){
+      var c = calcGeral(h);
+      var d = document.createElement("div");
+      d.className="hist-item";
+      d.innerHTML='<div class="h-datas">📅 '+fmtDataFull(h.inicio)+' a '+fmtDataFull(h.fim)+'</div>'+
+        '<div class="h-lucro" style="color:'+(c.lucro>=0?'var(--verde)':'var(--vermelho)')+'">Lucro líquido: '+fmt(c.lucro)+'</div>'+
+        '<div class="h-det">🔥 '+c.gas.vendidos+' vendidos (bruto '+fmt(c.gas.lucroBruto)+') · 💧 '+c.agua.vendidos+' vendidos (bruto '+fmt(c.agua.lucroBruto)+')<br>'+
+        'Receita '+fmt(c.receita)+' · Gastos '+fmt(c.gastos)+
+        (c.aReceber>0?' · <b style="color:var(--amarelo)">Fiado pendente: '+fmt(c.aReceber)+'</b>':'')+'</div>';
+      el.appendChild(d);
+    });
+  }
+
+  // ================= ABERTURA =================
+  function prepararAbertura(){
+    if (s()) return;
+    var hoje = hojeISO();
+    document.getElementById("abInicio").value = hoje;
+    var fim = new Date(hoje+"T12:00:00");
+    fim.setDate(fim.getDate()+5);
+    document.getElementById("abFim").value = fim.getFullYear()+"-"+String(fim.getMonth()+1).padStart(2,"0")+"-"+String(fim.getDate()).padStart(2,"0");
+    // puxa estoque da última semana fechada
+    if (dados.historico.length>0){
+      var ult = dados.historico[dados.historico.length-1];
+      var g = calcProduto(ult,"gas"), a = calcProduto(ult,"agua");
+      document.getElementById("abEstGasQtd").value = g.estoqueFinal;
+      document.getElementById("abEstGasCusto").value = g.custoMedio.toFixed(2);
+      document.getElementById("abEstAguaQtd").value = a.estoqueFinal;
+      document.getElementById("abEstAguaCusto").value = a.custoMedio.toFixed(2);
+      document.getElementById("msgEstoquePuxado").textContent =
+        "✓ Estoque puxado da semana passada ("+fmtData(ult.inicio)+" a "+fmtData(ult.fim)+"). Confira e corrija se precisar.";
+    }
+  }
+
+  document.getElementById("btnAbrirSemana").addEventListener("click", async function(){
+    var ini = document.getElementById("abInicio").value;
+    var fim = document.getElementById("abFim").value;
+    if (!ini || !fim){ alert("Preencha o dia que abre e o dia que fecha."); return; }
+    dados.semanaAtiva = {
+      id:Date.now(), inicio:ini, fim:fim,
+      estoqueIni:{
+        gas:{ qtd:Number(document.getElementById("abEstGasQtd").value)||0, custo:Number(document.getElementById("abEstGasCusto").value)||0 },
+        agua:{ qtd:Number(document.getElementById("abEstAguaQtd").value)||0, custo:Number(document.getElementById("abEstAguaCusto").value)||0 }
+      },
+      compras:[], vendas:[], gastos:[], saidas:[]
+    };
+    await persistir(); renderTudo();
+  });
+
+  // ================= COMPRAS =================
+  // ===== Motoristas e fornecedores conhecidos =====
+  function renderChipsLista(containerId, inputId, chave, icone){
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = "";
+    (dados[chave]||[]).forEach(function(nome){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip"+(document.getElementById(inputId).value.trim()===nome?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">'+icone+' '+esc(nome)+'</span><span class="x-chip" data-x="1">✕</span>';
+      chip.addEventListener("click", async function(ev){
+        if (ev.target && ev.target.dataset && ev.target.dataset.x){
+          if (confirm('Tirar "'+nome+'" da lista?')){
+            dados[chave] = dados[chave].filter(function(m){return m!==nome;});
+            await persistir();
+            renderChipsLista(containerId, inputId, chave, icone);
+          }
+          return;
+        }
+        document.getElementById(inputId).value = nome;
+        renderChipsLista(containerId, inputId, chave, icone);
+      });
+      el.appendChild(chip);
+    });
+  }
+  function renderChipsMotorista(containerId, inputId){
+    renderChipsLista(containerId, inputId, "motoristas", "🚚");
+  }
+  function cadastrarNaLista(chave, nome){
+    if (!nome) return;
+    if (!dados[chave]) dados[chave] = [];
+    if (dados[chave].indexOf(nome)<0) dados[chave].push(nome);
+  }
+  function cadastrarMotorista(nome){ cadastrarNaLista("motoristas", nome); }
+
+  function atualizarPreviewCompra(){
+    var qtd = Number(document.getElementById("cpQtd").value)||0;
+    var preco = Number(document.getElementById("cpPreco").value)||0;
+    var puxada = (Number(document.getElementById("cpMotorista").value)||0)
+      + (Number(document.getElementById("cpCombustivel").value)||0)
+      + (Number(document.getElementById("cpOutros").value)||0);
+    var el = document.getElementById("cpPreview");
+    if (qtd>0 && preco>0){
+      var custoReal = (qtd*preco + puxada)/qtd;
+      var un = prodCompra.valor ? PROD[prodCompra.valor].un : "unidade";
+      el.textContent = "Custo real: "+fmt(custoReal)+" por "+un+(puxada>0?" (com a puxada)":"")+" · total "+fmt(qtd*preco+puxada);
+    } else {
+      el.textContent = "";
+    }
+  }
+  ["cpQtd","cpPreco","cpMotorista","cpCombustivel","cpOutros"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", atualizarPreviewCompra);
+  });
+
+  document.getElementById("btnAddCompra").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    if (!prodCompra.valor){ alert("Escolha: 🔥 Botijão ou 💧 Água."); return; }
+    var data = document.getElementById("cpData").value || hojeISO();
+    var qtd = Number(document.getElementById("cpQtd").value);
+    var preco = Number(document.getElementById("cpPreco").value);
+    if (!qtd || !preco){ alert("Preencha a quantidade e o preço de compra."); return; }
+    sem.compras.push({
+      id:Date.now(), data:data, produto:prodCompra.valor, qtd:qtd, preco:preco,
+      fornecedor:document.getElementById("cpFornecedor").value.trim(),
+      gMotorista:Number(document.getElementById("cpMotorista").value)||0,
+      gMotoristaNome:document.getElementById("cpMotoristaNome").value.trim(),
+      gCombustivel:Number(document.getElementById("cpCombustivel").value)||0,
+      gOutros:Number(document.getElementById("cpOutros").value)||0
+    });
+    cadastrarMotorista(document.getElementById("cpMotoristaNome").value.trim());
+    cadastrarNaLista("fornecedores", document.getElementById("cpFornecedor").value.trim());
+    document.getElementById("cpFornecedor").value="";
+    document.getElementById("cpMotoristaNome").value="";
+    document.getElementById("cpQtd").value="";
+    document.getElementById("cpPreco").value="";
+    document.getElementById("cpMotorista").value="";
+    document.getElementById("cpCombustivel").value="";
+    document.getElementById("cpOutros").value="";
+    document.getElementById("cpPreview").textContent="";
+    await persistir(); renderTudo();
+  });
+  document.getElementById("listaCompras").addEventListener("click", async function(e){
+    var btn = e.target.closest("button[data-cid]");
+    if (!btn) return;
+    if (!confirm("Apagar esta compra?")) return;
+    var sem = s(); if(!sem) return;
+    sem.compras = sem.compras.filter(function(c){return String(c.id)!==String(btn.dataset.cid);});
+    await persistir(); renderTudo();
+  });
+
+  // ================= VENDAS =================
+  var formaSel = null;
+  function abrirModalVenda(pre){
+    prodVenda.definir(pre.produto||null);
+    document.getElementById("vCliente").value = pre.cliente||"";
+    document.getElementById("vQtd").value = (pre.qtd && pre.qtd>0) ? pre.qtd : 0;
+    document.getElementById("vPreco").value = pre.preco||"";
+    document.getElementById("vData").value = pre.data||hojeISO();
+    document.getElementById("vEntregue").value = pre.entregue==="sim"?"sim":"nao";
+    document.getElementById("vStatus").value = pre.status||"entrega";
+    formaSel = pre.forma||null;
+    definirTipoGas(pre.povo==="sim"||pre.povo===true ? "povo" : "normal");
+    document.getElementById("campoTipoGas").style.display = (pre.produto==="gas") ? "block" : "none";
+    atualizarFormaBtns(); atualizarCampoForma();
+    limparGastosEntrega();
+    document.getElementById("vRota").value = pre.rota || (dados.ultimaRota || "");
+    renderListaRotas();
+    renderListaClientes(prodVenda.valor);
+    document.getElementById("modalVenda").classList.add("aberto");
+  }
+  function atualizarFormaBtns(){
+    document.querySelectorAll("#escolhaPag button").forEach(function(b){
+      b.classList.toggle("sel", b.dataset.f===formaSel);
+    });
+  }
+  document.querySelectorAll("#escolhaPag button").forEach(function(b){
+    b.addEventListener("click", function(){ formaSel=b.dataset.f; atualizarFormaBtns(); });
+  });
+  function atualizarCampoForma(){
+    var st = document.getElementById("vStatus").value;
+    document.getElementById("campoFormaPag").style.display = st==="pago" ? "block" : "none";
+  }
+  document.getElementById("vStatus").addEventListener("change", atualizarCampoForma);
+  document.getElementById("btnVCancelar").addEventListener("click", function(){
+    document.getElementById("modalVenda").classList.remove("aberto");
+  });
+  document.getElementById("btnVSalvar").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    if (!prodVenda.valor){ alert("Escolha: 🔥 Botijão ou 💧 Água."); return; }
+    var qtdVenda = Number(document.getElementById("vQtd").value)||0;
+    if (qtdVenda<=0){ alert("Informe a quantidade (maior que 0)."); return; }
+    var preco = Number(document.getElementById("vPreco").value);
+    if (!preco){ alert("Informe o preço por unidade."); return; }
+    var status = document.getElementById("vStatus").value;
+    if (status==="pago" && !formaSel){ alert("Escolha como pagou: Pix, Dinheiro ou Cartão."); return; }
+    var nomeRota = document.getElementById("vRota").value.trim();
+    sem.vendas.push({
+      id:Date.now(),
+      produto:prodVenda.valor,
+      data:document.getElementById("vData").value||hojeISO(),
+      cliente:document.getElementById("vCliente").value.trim(),
+      rota:nomeRota,
+      qtd:qtdVenda,
+      preco:preco,
+      status:status, pago:status==="pago", forma:status==="pago"?formaSel:null,
+      entregue:document.getElementById("vEntregue").value==="sim",
+      povo: prodVenda.valor==="gas" && tipoGasSel==="povo"
+    });
+    if (nomeRota){
+      if (!dados.rotasNomes) dados.rotasNomes = [];
+      if (dados.rotasNomes.indexOf(nomeRota)<0) dados.rotasNomes.push(nomeRota);
+      dados.ultimaRota = nomeRota;
+    }
+    // cadastra/atualiza o cliente na lista do produto, guardando o preço dele
+    var nomeCli = document.getElementById("vCliente").value.trim();
+    if (nomeCli){
+      dados.clientes[prodVenda.valor][nomeCli] = { preco:preco };
+    }
+    await persistir();
+    document.getElementById("modalVenda").classList.remove("aberto");
+    setStatusVoz("✓ Salvo!");
+    setTimeout(function(){ setStatusVoz(""); }, 2500);
+    renderTudo();
+  });
+  document.getElementById("btnAbrirManual").addEventListener("click", function(){ abrirModalVenda({}); });
+
+  var vendaPagandoId = null, formaSel2 = null, vendaPagandoPreco = 0;
+  function abrirModalPagar(v){
+    vendaPagandoId = v.id; formaSel2 = null;
+    vendaPagandoPreco = v.preco;
+    document.querySelectorAll("#escolhaPag2 button").forEach(function(x){x.classList.remove("sel");});
+    var P = PROD[v.produto];
+    document.getElementById("pagInfo").innerHTML = "<b>"+esc(v.cliente||"Cliente")+"</b> — pré-venda de "+v.qtd+" "+(v.qtd>1?P.unPl:P.un)+" × "+fmt(v.preco);
+    document.getElementById("pagQtd").value = v.qtd;
+    document.getElementById("pagTotal").textContent = fmt(v.qtd*v.preco);
+    document.getElementById("campoCobranca").style.display = "none";
+    document.getElementById("pagCobranca").value = "";
+    document.getElementById("modalPagar").classList.add("aberto");
+  }
+
+  // ===== Aba Fiado =====
+  function renderFiado(){
+    var el = document.getElementById("listaFiado");
+    var devendo = [];
+    todasSemanas().forEach(function(sem){
+      (sem.vendas||[]).forEach(function(v){
+        if (v.entregue && !v.pago) devendo.push({ v:v, sem:sem });
+      });
+    });
+    var total = devendo.reduce(function(a,d){return a+d.v.qtd*d.v.preco;},0);
+    document.getElementById("totalFiado").textContent = fmt(total);
+    if (devendo.length===0){ el.innerHTML='<div class="vazio">Ninguém devendo. 🎉</div>'; return; }
+    var hoje = hojeISO();
+    // vencidos primeiro, depois por data de cobrança
+    devendo.sort(function(a,b){
+      var ca = a.v.cobranca||"9999-12-31", cb = b.v.cobranca||"9999-12-31";
+      return ca.localeCompare(cb);
+    });
+    el.innerHTML = "";
+    devendo.forEach(function(d){
+      var v = d.v;
+      var P = PROD[v.produto];
+      var vencido = v.cobranca && v.cobranca < hoje;
+      var hojeCobra = v.cobranca === hoje;
+      var cobrancaTxt = v.cobranca
+        ? (vencido ? '<b style="color:var(--vermelho)">VENCIDO — era pra cobrar '+fmtData(v.cobranca)+'</b>'
+          : (hojeCobra ? '<b style="color:var(--amarelo)">COBRAR HOJE</b>' : 'cobrar '+fmtData(v.cobranca)))
+        : 'sem data de cobrança';
+      var card = document.createElement("div");
+      card.className = "venda "+(vencido?"st-prazo":"p-"+v.produto);
+      if (vencido) card.style.borderLeftColor = "var(--vermelho)";
+      card.innerHTML =
+        '<div class="topo"><div><div class="cliente">'+P.emoji+' '+esc(v.cliente||"Cliente")+'</div>'+
+        '<div class="det">'+v.qtd+' '+(v.qtd>1?P.unPl:P.un)+' × '+fmt(v.preco)+(v.rota?' · 📍 '+esc(v.rota):'')+' · entrega '+fmtData(v.data)+'</div>'+
+        '<div class="det">Semana '+fmtData(d.sem.inicio)+' a '+fmtData(d.sem.fim)+' · '+cobrancaTxt+'</div></div>'+
+        '<div class="valor" style="color:var(--vermelho)">'+fmt(v.qtd*v.preco)+'</div></div>'+
+        '<div class="acoes"><button class="b-pagar" data-fid="'+v.id+'">💰 Receber</button></div>';
+      el.appendChild(card);
+    });
+  }
+  document.getElementById("listaFiado").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-fid]");
+    if (!btn) return;
+    var achado = findVenda(btn.dataset.fid);
+    if (achado) abrirModalPagar(achado.v);
+  });
+  document.getElementById("pagQtd").addEventListener("input", function(){
+    var q = Number(this.value)||0;
+    document.getElementById("pagTotal").textContent = q>0 ? fmt(q*vendaPagandoPreco) : "—";
+  });
+  document.querySelectorAll("#escolhaPag2 button").forEach(function(b){
+    b.addEventListener("click", function(){
+      formaSel2=b.dataset.f;
+      document.querySelectorAll("#escolhaPag2 button").forEach(function(x){x.classList.toggle("sel",x.dataset.f===formaSel2);});
+      var ehFiado = formaSel2==="Fiado";
+      document.getElementById("campoCobranca").style.display = ehFiado ? "block" : "none";
+      if (ehFiado && !document.getElementById("pagCobranca").value){
+        var d = new Date(); d.setDate(d.getDate()+7);
+        document.getElementById("pagCobranca").value = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      }
+    });
+  });
+  document.getElementById("listaVendas").addEventListener("click", async function(e){
+    var btn = e.target.closest("[data-ac]");
+    if (!btn) return;
+    var sem = s(); if(!sem) return;
+    var v = sem.vendas.find(function(x){return String(x.id)===String(btn.dataset.id);});
+    if (!v) return;
+    if (btn.dataset.ac==="entregue"){
+      v.entregue = true;
+      if (v.data < hojeISO()) v.data = hojeISO(); // entrega conta no dia de hoje se a pré-venda era antiga? mantém simples: atualiza pra hoje
+      await persistir(); renderTudo();
+    } else if (btn.dataset.ac==="desentregar"){
+      if (!confirm("Voltar esta venda para \"a entregar\"?")) return;
+      v.entregue = false;
+      await persistir(); renderTudo();
+    } else if (btn.dataset.ac==="despagar"){
+      if (!confirm("Desfazer o pagamento desta venda? Ela volta pra \"a receber\".")) return;
+      v.pago = false;
+      v.forma = null;
+      await persistir(); renderTudo();
+    } else if (btn.dataset.ac==="pagar"){
+      abrirModalPagar(v);
+    } else if (btn.dataset.ac==="apagar"){
+      if (!confirm("Apagar esta venda?")) return;
+      sem.vendas = sem.vendas.filter(function(x){return String(x.id)!==String(v.id);});
+      await persistir(); renderTudo();
+    }
+  });
+  document.getElementById("btnPagCancelar").addEventListener("click", function(){
+    document.getElementById("modalPagar").classList.remove("aberto");
+  });
+  document.getElementById("btnPagConfirmar").addEventListener("click", async function(){
+    if (!formaSel2){ alert("Escolha: Pix, Dinheiro, Cartão ou Fiado."); return; }
+    var achado = findVenda(vendaPagandoId);
+    if (achado){
+      var v = achado.v;
+      var nq = Number(document.getElementById("pagQtd").value)||0;
+      if (nq<=0){ alert("Quantidade deve ser maior que 0. Se o cliente não ficou com nada, apague a venda no ✕."); return; }
+      v.qtd = nq;
+      v.entregue = true;
+      if (formaSel2==="Fiado"){
+        var dataCob = document.getElementById("pagCobranca").value;
+        if (!dataCob){ alert("Informe a data da cobrança."); return; }
+        v.pago = false;
+        v.forma = null;
+        v.status = "prazo";
+        v.cobranca = dataCob;
+      } else {
+        v.pago = true;
+        v.forma = formaSel2;
+      }
+      if (v.cliente && dados.clientes[v.produto]) dados.clientes[v.produto][v.cliente] = { preco:v.preco };
+    }
+    await persistir();
+    document.getElementById("modalPagar").classList.remove("aberto");
+    renderTudo();
+  });
+
+  // ================= STATUS =================
+  function setStatusVoz(msg, erro){
+    var el = document.getElementById("statusVoz");
+    el.textContent = msg;
+    el.className = "status"+(erro?" erro":"");
+  }
+
+
+  // ================= GASTOS =================
+  var catSel = null;
+  document.querySelectorAll("#atalhosGasto button").forEach(function(b){
+    b.addEventListener("click", function(){
+      catSel = b.dataset.cat;
+      document.querySelectorAll("#atalhosGasto button").forEach(function(x){x.classList.toggle("sel",x===b);});
+      document.getElementById("campoDescOutro").style.display = (catSel==="Outros"||catSel==="Manutenção") ? "block" : "none";
+      document.getElementById("gValor").value="";
+      document.getElementById("gDesc").value="";
+      document.getElementById("gValor").focus();
+    });
+  });
+  document.getElementById("btnAddGasto").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    var valor = Number(document.getElementById("gValor").value);
+    if (!catSel){ alert("Escolha o tipo do gasto."); return; }
+    if (!valor){ alert("Informe o valor do gasto."); return; }
+    var desc = (catSel==="Outros"||catSel==="Manutenção")
+      ? (document.getElementById("gDesc").value.trim() ? catSel+": "+document.getElementById("gDesc").value.trim() : catSel)
+      : catSel;
+    sem.gastos.push({
+      id:Date.now(),
+      data:document.getElementById("gData").value||hojeISO(),
+      descricao:desc, categoria:catSel, valor:valor
+    });
+    document.getElementById("gValor").value="";
+    document.getElementById("gDesc").value="";
+    await persistir(); renderTudo();
+  });
+  document.getElementById("listaGastos").addEventListener("click", async function(e){
+    var btn = e.target.closest("button[data-gid]");
+    if (!btn) return;
+    if (!confirm("Apagar este gasto?")) return;
+    var sem = s(); if(!sem) return;
+    sem.gastos = sem.gastos.filter(function(g){return String(g.id)!==String(btn.dataset.gid);});
+    await persistir(); renderTudo();
+  });
+
+  // ===== Rotas conhecidas (nomes) =====
+  function renderListaRotas(){
+    if (!dados.rotasNomes) dados.rotasNomes = [];
+    var el = document.getElementById("listaRotas");
+    el.innerHTML = "";
+    dados.rotasNomes.forEach(function(nome){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip"+(document.getElementById("vRota").value.trim()===nome?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">📍 '+esc(nome)+'</span><span class="x-chip" data-x="1">✕</span>';
+      chip.addEventListener("click", async function(ev){
+        if (ev.target && ev.target.dataset && ev.target.dataset.x){
+          if (confirm('Tirar a rota "'+nome+'" da lista? (As vendas já lançadas continuam.)')){
+            dados.rotasNomes = dados.rotasNomes.filter(function(r){return r!==nome;});
+            await persistir(); renderListaRotas();
+          }
+          return;
+        }
+        document.getElementById("vRota").value = nome;
+        renderListaRotas();
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  // ===== Gastos da entrega agora são por ROTA (ver "Entrega da rota" na aba Vendas) =====
+  function limparGastosEntrega(){}
+  document.getElementById("btnMostrarGastosEntrega").addEventListener("click", function(){});
+
+  // ===== Saída do caminhão (carga) =====
+  var rotaSaidaSel = null;
+  function renderSaida(){
+    var sem = s(); if(!sem) return;
+    if (!sem.saidas) sem.saidas = [];
+    if (!document.getElementById("sdData").value) document.getElementById("sdData").value = hojeISO();
+    var el = document.getElementById("chipsRotaSaida");
+    // rotas com pendências + nomes conhecidos
+    var nomes = {};
+    (sem.vendas||[]).forEach(function(v){ if(!v.entregue) nomes[v.rota||"Sem rota"]=true; });
+    (dados.rotasNomes||[]).forEach(function(r){ nomes[r]=true; });
+    var lista = Object.keys(nomes).sort(function(a,b){return a.localeCompare(b,"pt-BR");});
+    el.innerHTML = "";
+    lista.forEach(function(r){
+      var chip = document.createElement("button");
+      chip.type="button";
+      chip.className = "chip"+(r===rotaSaidaSel?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">📍 '+esc(r)+'</span>';
+      chip.addEventListener("click", function(){ rotaSaidaSel=r; renderSaida(); });
+      el.appendChild(chip);
+    });
+    // lista de saídas registradas
+    var elS = document.getElementById("listaSaidas");
+    if (sem.saidas.length===0){ elS.innerHTML=""; return; }
+    elS.innerHTML = "<div style='font-size:0.9rem; color:var(--cinza); margin-bottom:6px;'>Saídas registradas (anote a volta quando o caminhão chegar):</div>";
+    sem.saidas.slice().reverse().forEach(function(sa){
+      var d = document.createElement("div");
+      d.className="item-linha";
+      d.style.flexWrap = "wrap";
+      var carga = [];
+      if (sa.gas>0) carga.push("🔥 "+sa.gas);
+      if (sa.agua>0) carga.push("💧 "+sa.agua);
+      var volta = "";
+      if (sa.voltaGas!=null || sa.voltaAgua!=null){
+        var vp = [];
+        if (sa.gas>0) vp.push("🔥 "+(sa.voltaGas||0));
+        if (sa.agua>0) vp.push("💧 "+(sa.voltaAgua||0));
+        volta = '<div class="il-sub" style="color:var(--verde); font-weight:700;">↩️ voltou: '+vp.join(" · ")+'</div>';
+      } else {
+        var campos = "";
+        if (sa.gas>0) campos += '🔥 <input type="number" min="0" inputmode="numeric" placeholder="0" data-vg="'+sa.id+'" style="width:58px; padding:8px 4px; font-size:1rem; text-align:center; border:1.5px solid #d5d0c6; border-radius:8px; background:var(--areia);"> ';
+        if (sa.agua>0) campos += '💧 <input type="number" min="0" inputmode="numeric" placeholder="0" data-va="'+sa.id+'" style="width:58px; padding:8px 4px; font-size:1rem; text-align:center; border:1.5px solid #d5d0c6; border-radius:8px; background:var(--areia);"> ';
+        volta = '<div style="width:100%; margin-top:8px; display:flex; align-items:center; gap:6px; font-size:0.95rem;">↩️ Voltou: '+campos+
+          '<button data-svolta="'+sa.id+'" style="border:none; background:var(--azul); color:#fff; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; cursor:pointer;">Salvar volta</button></div>';
+      }
+      d.innerHTML='<div class="il-desc">📍 '+esc(sa.rota||"Sem rota")+' — '+carga.join(" · ")+
+        '<div class="il-sub">'+diaSemana(sa.data)+', '+fmtData(sa.data)+(sa.motorista?' · 🚚 '+esc(sa.motorista):'')+'</div></div>'+
+        '<button class="b-apagar" data-sid="'+sa.id+'" style="border:none;background:none;color:var(--cinza);font-size:1.2rem;cursor:pointer">✕</button>'+
+        volta;
+      elS.appendChild(d);
+    });
+  }
+  document.getElementById("btnRegistrarSaida").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    if (!sem.saidas) sem.saidas = [];
+    if (!rotaSaidaSel){ alert("Escolha a rota da saída."); return; }
+    var g = Number(document.getElementById("sdGas").value)||0;
+    var a = Number(document.getElementById("sdAgua").value)||0;
+    if (g<=0 && a<=0){ alert("Informe quantos botijões e/ou galões saíram."); return; }
+    sem.saidas.push({
+      id:Date.now(),
+      data:document.getElementById("sdData").value||hojeISO(),
+      rota:rotaSaidaSel==="Sem rota"?"":rotaSaidaSel,
+      motorista:document.getElementById("sdMotoristaNome").value.trim(),
+      gas:g, agua:a
+    });
+    cadastrarMotorista(document.getElementById("sdMotoristaNome").value.trim());
+    document.getElementById("sdMotoristaNome").value="";
+    document.getElementById("sdGas").value="";
+    document.getElementById("sdAgua").value="";
+    await persistir(); renderTudo();
+  });
+  document.getElementById("listaSaidas").addEventListener("click", async function(e){
+    var btnV = e.target.closest("button[data-svolta]");
+    if (btnV){
+      var sem2 = s(); if(!sem2) return;
+      var sa = (sem2.saidas||[]).find(function(x){return String(x.id)===String(btnV.dataset.svolta);});
+      if (!sa) return;
+      var inpG = document.querySelector('input[data-vg="'+sa.id+'"]');
+      var inpA = document.querySelector('input[data-va="'+sa.id+'"]');
+      sa.voltaGas = inpG ? (Number(inpG.value)||0) : null;
+      sa.voltaAgua = inpA ? (Number(inpA.value)||0) : null;
+      await persistir(); renderTudo();
+      return;
+    }
+    var btn = e.target.closest("button[data-sid]");
+    if (!btn) return;
+    if (!confirm("Apagar esta saída?")) return;
+    var sem = s(); if(!sem) return;
+    sem.saidas = (sem.saidas||[]).filter(function(x){return String(x.id)!==String(btn.dataset.sid);});
+    await persistir(); renderTudo();
+  });
+
+  // ===== Cadastro de cliente novo =====
+  var ncSelGas = false, ncSelAgua = false;
+  function atualizarNcBotoes(){
+    document.getElementById("ncGas").classList.toggle("sel-gas", ncSelGas);
+    document.getElementById("ncAgua").classList.toggle("sel-agua", ncSelAgua);
+    document.getElementById("ncCampoPrecoGas").style.display = ncSelGas ? "block" : "none";
+    document.getElementById("ncCampoPrecoAgua").style.display = ncSelAgua ? "block" : "none";
+  }
+  document.getElementById("ncGas").addEventListener("click", function(){ ncSelGas=!ncSelGas; atualizarNcBotoes(); });
+  document.getElementById("ncAgua").addEventListener("click", function(){ ncSelAgua=!ncSelAgua; atualizarNcBotoes(); });
+  document.getElementById("btnNovoCliente").addEventListener("click", function(){
+    ncSelGas=false; ncSelAgua=false;
+    document.getElementById("ncNome").value="";
+    document.getElementById("ncPrecoGas").value="";
+    document.getElementById("ncPrecoAgua").value="";
+    atualizarNcBotoes();
+    document.getElementById("modalCliente").classList.add("aberto");
+  });
+  document.getElementById("btnNcCancelar").addEventListener("click", function(){
+    document.getElementById("modalCliente").classList.remove("aberto");
+  });
+  document.getElementById("btnNcSalvar").addEventListener("click", async function(){
+    var nome = document.getElementById("ncNome").value.trim();
+    if (!nome){ alert("Digite o nome do cliente."); return; }
+    if (!ncSelGas && !ncSelAgua){ alert("Marque se é cliente de botijão, de água ou dos dois."); return; }
+    // evita duplicado com outro jeito de escrever
+    function jaExiste(p){
+      var alvo = normalizarNome(nome);
+      return Object.keys(dados.clientes[p]||{}).find(function(n){ return normalizarNome(n)===alvo; });
+    }
+    if (ncSelGas){
+      var ex = jaExiste("gas");
+      if (ex && ex!==nome){ alert('Já existe "'+ex+'" na lista do gás. Use esse ou escolha outro nome.'); return; }
+      var pg = Number(document.getElementById("ncPrecoGas").value)||null;
+      dados.clientes.gas[nome] = { preco: pg || (dados.clientes.gas[nome]&&dados.clientes.gas[nome].preco) || null };
+    }
+    if (ncSelAgua){
+      var ex2 = jaExiste("agua");
+      if (ex2 && ex2!==nome){ alert('Já existe "'+ex2+'" na lista da água. Use esse ou escolha outro nome.'); return; }
+      var pa = Number(document.getElementById("ncPrecoAgua").value)||null;
+      dados.clientes.agua[nome] = { preco: pa || (dados.clientes.agua[nome]&&dados.clientes.agua[nome].preco) || null };
+    }
+    await persistir();
+    document.getElementById("modalCliente").classList.remove("aberto");
+    renderTudo();
+    alert('✓ Cliente "'+nome+'" cadastrado!');
+  });
+
+  // ===== Pré-venda em lote =====
+  var prodLote = ligarEscolhaProd("prodLote", function(p){ renderListaLote(p); });
+  function renderChipsRotaLote(){
+    var el = document.getElementById("chipsRotaLote");
+    el.innerHTML = "";
+    (dados.rotasNomes||[]).forEach(function(nome){
+      var chip = document.createElement("button");
+      chip.type="button";
+      chip.className = "chip"+(document.getElementById("loteRota").value.trim()===nome?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">📍 '+esc(nome)+'</span>';
+      chip.addEventListener("click", function(){
+        document.getElementById("loteRota").value = nome;
+        renderChipsRotaLote();
+      });
+      el.appendChild(chip);
+    });
+  }
+  function renderListaLote(p){
+    var el = document.getElementById("listaLote");
+    el.innerHTML = "";
+    if (!p){ el.innerHTML='<div class="vazio">Escolha o produto acima.</div>'; return; }
+    var nomes = Object.keys(dados.clientes[p]||{}).sort(function(a,b){return a.localeCompare(b,"pt-BR");});
+    if (nomes.length===0){ el.innerHTML='<div class="vazio">Nenhum cliente cadastrado ainda pra esse produto.</div>'; return; }
+    nomes.forEach(function(nome, i){
+      var info = dados.clientes[p][nome]||{};
+      var d = document.createElement("div");
+      d.className = "item-linha";
+      d.style.padding = "8px 10px";
+      d.innerHTML =
+        '<div class="il-desc" style="font-size:0.98rem;">'+esc(nome)+'</div>'+
+        '<input type="number" min="0" inputmode="numeric" value="0" data-lqtd="'+i+'" data-lnome="'+esc(nome)+'" '+
+          'style="width:64px; padding:10px 4px; font-size:1.15rem; text-align:center; border:2px solid var(--azul-claro); border-radius:10px; background:var(--areia); color:var(--azul); font-weight:700;">'+
+        '<input type="number" step="0.01" inputmode="decimal" value="'+(info.preco||"")+'" placeholder="R$" data-lpreco="'+i+'" '+
+          'style="width:78px; padding:10px 4px; font-size:1rem; text-align:center; border:1.5px solid #d5d0c6; border-radius:10px; background:var(--areia); color:var(--azul);">';
+      el.appendChild(d);
+    });
+  }
+  document.getElementById("btnAbrirLote").addEventListener("click", function(){
+    prodLote.definir(null);
+    document.getElementById("listaLote").innerHTML = '<div class="vazio">Escolha o produto acima.</div>';
+    document.getElementById("loteData").value = hojeISO();
+    document.getElementById("loteRota").value = dados.ultimaRota || "";
+    renderChipsRotaLote();
+    document.getElementById("modalLote").classList.add("aberto");
+  });
+  document.getElementById("btnLoteCancelar").addEventListener("click", function(){
+    document.getElementById("modalLote").classList.remove("aberto");
+  });
+  document.getElementById("btnLoteSalvar").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    var p = prodLote.valor;
+    if (!p){ alert("Escolha: 🔥 Botijão ou 💧 Água."); return; }
+    var rota = document.getElementById("loteRota").value.trim();
+    var data = document.getElementById("loteData").value || hojeISO();
+    var linhas = document.querySelectorAll("#listaLote input[data-lqtd]");
+    var novos = [];
+    var faltaPreco = [];
+    linhas.forEach(function(inp, idx){
+      var qtd = Number(inp.value)||0;
+      if (qtd<=0) return;
+      var nome = inp.getAttribute("data-lnome");
+      var precoInp = document.querySelector('#listaLote input[data-lpreco="'+inp.getAttribute("data-lqtd")+'"]');
+      var preco = Number(precoInp ? precoInp.value : 0)||0;
+      if (preco<=0){ faltaPreco.push(nome); return; }
+      novos.push({ nome:nome, qtd:qtd, preco:preco });
+    });
+    if (faltaPreco.length>0){
+      alert("Falta o preço de: "+faltaPreco.join(", "));
+      return;
+    }
+    if (novos.length===0){ alert("Nenhum cliente com quantidade preenchida."); return; }
+    var totalUnid = novos.reduce(function(a,n){return a+n.qtd;},0);
+    if (!confirm("Salvar "+novos.length+" pré-venda(s), total de "+totalUnid+" unidade(s)"+(rota?" na rota "+rota:"")+"?")) return;
+    var base = Date.now();
+    novos.forEach(function(n, i){
+      sem.vendas.push({
+        id:base+i, produto:p, data:data, cliente:n.nome, rota:rota,
+        qtd:n.qtd, preco:n.preco,
+        status:"entrega", pago:false, forma:null, entregue:false, povo:false
+      });
+      dados.clientes[p][n.nome] = { preco:n.preco };
+    });
+    if (rota){
+      if (!dados.rotasNomes) dados.rotasNomes = [];
+      if (dados.rotasNomes.indexOf(rota)<0) dados.rotasNomes.push(rota);
+      dados.ultimaRota = rota;
+    }
+    document.getElementById("modalLote").classList.remove("aberto");
+    await persistir(); renderTudo();
+  });
+
+
+  // ===== Gastos da viagem por rota + fechar entregas =====
+  var rotaEntregaSel = null;
+  function pendentesDaRota(sem, r){
+    return (sem.vendas||[]).filter(function(v){
+      if (v.entregue) return false;
+      var rv = v.rota || "Sem rota";
+      return rv === r;
+    });
+  }
+  function renderEntregaRota(){
+    var sem = s(); if(!sem) return;
+    if (!document.getElementById("reData").value) document.getElementById("reData").value = hojeISO();
+    var el = document.getElementById("chipsRotaEntrega");
+    // todas as rotas com venda na semana (mesmo já entregues, pra poder lançar gasto depois)
+    var mapa = {};
+    (sem.vendas||[]).forEach(function(v){
+      var r = v.rota||"Sem rota";
+      if (!(r in mapa)) mapa[r]=0;
+      if (!v.entregue) mapa[r]++;
+    });
+    var nomes = Object.keys(mapa).sort(function(a,b){ return a.localeCompare(b,"pt-BR"); });
+    el.innerHTML = "";
+    if (nomes.length===0){
+      el.innerHTML = '<div style="font-size:0.9rem; color:var(--cinza); padding:4px 2px;">Nenhuma venda na semana ainda.</div>';
+      rotaEntregaSel = null;
+      document.getElementById("reInfo").textContent = "";
+      return;
+    }
+    if (rotaEntregaSel && !(rotaEntregaSel in mapa)) rotaEntregaSel = null;
+    nomes.forEach(function(r){
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip"+(r===rotaEntregaSel?" escolhido":"");
+      chip.innerHTML = '<span class="nome-chip">📍 '+esc(r)+'</span>'+(mapa[r]>0?'<span class="preco-chip">'+mapa[r]+' pend.</span>':'');
+      chip.addEventListener("click", function(){ rotaEntregaSel=r; renderEntregaRota(); });
+      el.appendChild(chip);
+    });
+    var info = document.getElementById("reInfo");
+    if (rotaEntregaSel){
+      var pend = pendentesDaRota(sem, rotaEntregaSel);
+      info.textContent = pend.length>0
+        ? "Rota "+rotaEntregaSel+": "+pend.length+" entrega(s) ainda pendente(s)."
+        : "Rota "+rotaEntregaSel+": todas as entregas fechadas. Pode lançar os gastos.";
+    } else {
+      info.textContent = "Toque numa rota acima.";
+    }
+  }
+  document.getElementById("btnGastosRota").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    if (!rotaEntregaSel){ alert("Escolha a rota."); return; }
+    var dataEnt = document.getElementById("reData").value || hojeISO();
+    var gm = Number(document.getElementById("reMotorista").value)||0;
+    var ga = Number(document.getElementById("reAjudante").value)||0;
+    var gc = Number(document.getElementById("reCombustivel").value)||0;
+    var go = Number(document.getElementById("reOutros").value)||0;
+    if (gm+ga+gc+go<=0){ alert("Preencha pelo menos um valor de gasto."); return; }
+    var rotaGravar = rotaEntregaSel==="Sem rota" ? "" : rotaEntregaSel;
+    var nomeMot = document.getElementById("reMotoristaNome").value.trim();
+    cadastrarMotorista(nomeMot);
+    var base = Date.now();
+    if (gm>0) sem.gastos.push({ id:base+1, data:dataEnt, rota:rotaGravar, descricao:"Motorista"+(nomeMot?" ("+nomeMot+")":""), categoria:"Motorista", valor:gm });
+    if (ga>0) sem.gastos.push({ id:base+2, data:dataEnt, rota:rotaGravar, descricao:"Ajudante", categoria:"Ajudante", valor:ga });
+    if (gc>0) sem.gastos.push({ id:base+3, data:dataEnt, rota:rotaGravar, descricao:"Combustível", categoria:"Combustível", valor:gc });
+    if (go>0) sem.gastos.push({ id:base+4, data:dataEnt, rota:rotaGravar, descricao:"Outros da viagem", categoria:"Outros", valor:go });
+    ["reMotorista","reAjudante","reCombustivel","reOutros"].forEach(function(id){ document.getElementById(id).value=""; });
+    document.getElementById("reMotoristaNome").value="";
+    await persistir(); renderTudo();
+    alert("✓ Gastos da rota "+rotaEntregaSel+" lançados!");
+  });
+  document.getElementById("btnEntregarTudo").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    if (!rotaEntregaSel){ alert("Escolha a rota."); return; }
+    var pend = pendentesDaRota(sem, rotaEntregaSel);
+    if (pend.length===0){ alert("Nenhuma entrega pendente nessa rota."); return; }
+    var dataEnt = document.getElementById("reData").value || hojeISO();
+    if (!confirm("Marcar "+pend.length+" entrega(s) da rota "+rotaEntregaSel+" como entregues (quantidade da pré-venda)?\n\nUse só depois de conferir no Receber quem pagou na entrega — isso é pros que JÁ tinham pagado antes.")) return;
+    pend.forEach(function(v){ v.entregue = true; v.data = dataEnt; });
+    await persistir(); renderTudo();
+  });
+
+  // ================= FECHAR SEMANA =================
+  document.getElementById("btnFecharSemana").addEventListener("click", function(){
+    var sem = s(); if(!sem) return;
+    var c = calcGeral(sem);
+    document.getElementById("fechResumo").innerHTML =
+      "<b>Semana "+fmtDataFull(sem.inicio)+" a "+fmtDataFull(sem.fim)+"</b><br>"+
+      "🔥 Gás: "+c.gas.vendidos+" vendidos · lucro bruto "+fmt(c.gas.lucroBruto)+" · sobra "+c.gas.estoqueFinal+"<br>"+
+      (c.gas.povoQtd>0 ? "🇧🇷 Gás do Povo: "+c.gas.povoQtd+" vendidos · receita "+fmt(c.gas.povoReceita)+"<br>" : "")+
+      "💧 Água: "+c.agua.vendidos+" vendidos · lucro bruto "+fmt(c.agua.lucroBruto)+" · sobra "+c.agua.estoqueFinal+"<br>"+
+      "Gastos: "+fmt(c.gastos)+"<br>"+
+      "Lucro líquido: <b style='color:"+(c.lucro>=0?"var(--verde)":"var(--vermelho)")+"'>"+fmt(c.lucro)+"</b><br>"+
+      (c.aReceber>0 ? "<span style='color:var(--amarelo)'>⚠️ Fiado pendente: "+fmt(c.aReceber)+"</span><br>" : "")+
+      "<br>📦 A sobra de estoque será puxada automaticamente na próxima semana.";
+    document.getElementById("modalFechar").classList.add("aberto");
+  });
+  document.getElementById("btnFCancelar").addEventListener("click", function(){
+    document.getElementById("modalFechar").classList.remove("aberto");
+  });
+  document.getElementById("btnFConfirmar").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    dados.historico.push(sem);
+    dados.semanaAtiva = null;
+    await persistir();
+    document.getElementById("modalFechar").classList.remove("aberto");
+    prepararAbertura();
+    renderTudo();
+    document.querySelector('nav button[data-tela="semana"]').click();
+  });
+
+  // ===== Enviar lista pelo WhatsApp =====
+  // ===== Enviar lista em PDF pelo WhatsApp =====
+  function carregarJsPDF(){
+    return new Promise(function(res, rej){
+      if (window.jspdf && window.jspdf.jsPDF){ res(); return; }
+      var sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      sc.onload = function(){ res(); };
+      sc.onerror = function(){ rej(new Error("sem internet")); };
+      document.head.appendChild(sc);
+    });
+  }
+  document.getElementById("btnWhats").addEventListener("click", async function(){
+    var sem = s(); if(!sem) return;
+    var pendentes = (sem.vendas||[]).filter(function(v){return !v.entregue;});
+    if (pendentes.length===0){ alert("Nenhuma entrega pendente pra enviar."); return; }
+    var btn = this;
+    btn.disabled = true; btn.textContent = "Gerando PDF...";
+    try {
+      await carregarJsPDF();
+      var jsPDF = window.jspdf.jsPDF;
+      var doc = new jsPDF({ unit:"mm", format:"a4" });
+      var y = 14;
+      var LARG = 200, ALT_MAX = 285;
+      function quebra(alt){
+        if (y + alt > ALT_MAX){ doc.addPage(); y = 14; }
+      }
+      doc.setFont("helvetica","bold"); doc.setFontSize(14);
+      doc.text("LISTA DE ENTREGAS", 10, y); y += 6;
+      doc.setFont("helvetica","normal"); doc.setFontSize(10);
+      doc.text("Semana "+fmtDataFull(sem.inicio)+" a "+fmtDataFull(sem.fim)+" — impresso em "+fmtDataFull(hojeISO()), 10, y); y += 4;
+
+      var rotas = {};
+      pendentes.forEach(function(v){
+        var r = v.rota||"Sem rota";
+        if (!rotas[r]) rotas[r]=[];
+        rotas[r].push(v);
+      });
+
+      // colunas (x inicial de cada)
+      var C = { cliente:10, pre:74, levou:89, preco:107, pix:127, din:139, cartao:154, prazo:168, valor:182, fim:205 };
+
+      Object.keys(rotas).sort().forEach(function(r){
+        var chave = r==="Sem rota" ? "" : r;
+        var sg=0, sa=0;
+        (sem.saidas||[]).forEach(function(x){ if((x.rota||"")===chave){ sg+=x.gas||0; sa+=x.agua||0; } });
+        var carga = [];
+        if (sg>0) carga.push(sg+" botijoes");
+        if (sa>0) carga.push(sa+" galoes");
+        quebra(14);
+        y += 5;
+        doc.setDrawColor(60); doc.setLineWidth(0.5);
+        doc.line(10, y, LARG, y); y += 6;
+        doc.setFont("helvetica","bold"); doc.setFontSize(12);
+        doc.text("ROTA: "+r+(carga.length>0 ? "  |  SAIU DO DEPOSITO: "+carga.join(" + ") : ""), 10, y); y += 3;
+
+        ["gas","agua"].forEach(function(p){
+          var lista = rotas[r].filter(function(v){return v.produto===p;});
+          if (lista.length===0) return;
+          var nomeProd = p==="gas" ? "GAS (botijao)" : "AGUA (galao)";
+          var totQtd = lista.reduce(function(x2,v){return x2+v.qtd;},0);
+          var totVal = lista.reduce(function(x2,v){return x2+v.qtd*v.preco;},0);
+          quebra(16);
+          y += 6;
+          doc.setFont("helvetica","bold"); doc.setFontSize(11);
+          doc.text(nomeProd+" — pre-venda: "+totQtd+" ("+fmt(totVal).replace("R$ ","R$")+")", 10, y); y += 5;
+          // cabecalho
+          doc.setFontSize(8.5);
+          doc.text("Cliente", C.cliente, y);
+          doc.text("Pre", C.pre, y);
+          doc.text("Levou", C.levou, y);
+          doc.text("Preco", C.preco, y);
+          doc.text("Pix", C.pix, y);
+          doc.text("Dinh.", C.din, y);
+          doc.text("Cartao", C.cartao, y);
+          doc.text("Prazo", C.prazo, y);
+          doc.text("Valor pago", C.valor, y);
+          y += 1.5;
+          doc.setLineWidth(0.2); doc.setDrawColor(120);
+          doc.line(10, y, C.fim, y);
+          doc.setFont("helvetica","normal"); doc.setFontSize(9.5);
+          lista.forEach(function(v){
+            quebra(8);
+            y += 6;
+            var nome = (v.cliente||"-");
+            if (v.povo) nome += " [POVO]";
+            if (nome.length>31) nome = nome.slice(0,30)+"…";
+            doc.text(nome, C.cliente, y);
+            doc.text(String(v.qtd), C.pre, y);
+            doc.line(C.levou, y+0.8, C.levou+13, y+0.8); // linha pra escrever
+            doc.text(fmt(v.preco).replace("R$ ",""), C.preco, y);
+            if (v.pago){
+              doc.setFont("helvetica","bold");
+              doc.text("JA PAGO ("+(v.forma||"")+")", C.pix, y);
+              doc.setFont("helvetica","normal");
+            } else {
+              doc.rect(C.pix+1, y-3.2, 4, 4);
+              doc.rect(C.din+1, y-3.2, 4, 4);
+              doc.rect(C.cartao+1, y-3.2, 4, 4);
+              doc.rect(C.prazo+1, y-3.2, 4, 4);
+              doc.line(C.valor, y+0.8, C.fim, y+0.8);
+            }
+            doc.setDrawColor(200);
+            doc.line(10, y+1.8, C.fim, y+1.8);
+            doc.setDrawColor(120);
+          });
+        });
+      });
+      quebra(12);
+      y += 8;
+      doc.setFontSize(8.5); doc.setFont("helvetica","italic");
+      doc.text("Anote em Levou a quantidade real. Marque X em Pix, Dinheiro, Cartao ou Prazo e escreva o valor pago.", 10, y);
+
+      var blob = doc.output("blob");
+      var nomeArq = "entregas-"+sem.inicio+".pdf";
+      var file = new File([blob], nomeArq, { type:"application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files:[file] })){
+        await navigator.share({ files:[file], title:"Lista de entregas" });
+      } else {
+        var via = await baixarArquivo(nomeArq, blob);
+        if (via==="navegador") alert("PDF baixado! Abra o WhatsApp, toque no clipe 📎 e anexe o arquivo \""+nomeArq+"\" (pasta Downloads).");
+      }
+    } catch(e){
+      if (String(e && e.name)==="AbortError" || String(e && e.code)==="declined"){ /* usuario cancelou */ }
+      else alert("Não consegui gerar o PDF agora (precisa de internet na primeira vez). Alternativa: use o botão Imprimir e escolha \"Salvar como PDF\".");
+    }
+    btn.disabled = false; btn.textContent = "📱 Enviar lista pelo WhatsApp (PDF)";
+  });
+
+  // ================= IMPRESSÃO (lista de entregas) =================
+  document.getElementById("btnImprimir").addEventListener("click", function(){
+    var sem = s(); if(!sem) return;
+    var pendentes = (sem.vendas||[]).filter(function(v){return !v.entregue;});
+    if (pendentes.length===0){ alert("Nenhuma entrega pendente pra imprimir."); return; }
+    // agrupa por rota
+    var rotas = {};
+    pendentes.forEach(function(v){
+      var r = v.rota||"Sem rota";
+      if (!rotas[r]) rotas[r]=[];
+      rotas[r].push(v);
+    });
+    function saidasDaRota(r){
+      var chave = r==="Sem rota" ? "" : r;
+      var sg=0, sa=0;
+      (sem.saidas||[]).forEach(function(x){ if((x.rota||"")===chave){ sg+=x.gas||0; sa+=x.agua||0; } });
+      return {gas:sg, agua:sa};
+    }
+    function tabela(lista, prod){
+      var doProd = lista.filter(function(v){return v.produto===prod;});
+      if (doProd.length===0) return "";
+      var P = PROD[prod];
+      var totQtd=0, totVal=0;
+      var linhas = doProd.map(function(v){
+        totQtd+=v.qtd; totVal+=v.qtd*v.preco;
+        var nomeImp = esc(v.cliente||"—") + (v.povo ? " <b>[POVO]</b>" : "");
+        var pagCells;
+        if (v.pago){
+          pagCells = "<td colspan='4' style='text-align:center'><b>JÁ PAGO ("+esc(v.forma)+")</b></td><td></td>";
+        } else {
+          pagCells = "<td style='text-align:center; width:38px'>☐</td>"+
+            "<td style='text-align:center; width:38px'>☐</td>"+
+            "<td style='text-align:center; width:38px'>☐</td>"+
+            "<td style='text-align:center; width:38px'>☐</td>"+
+            "<td style='width:75px'></td>";
+        }
+        return "<tr><td>"+nomeImp+"</td><td style='text-align:center'>"+v.qtd+"</td><td style='width:60px'></td><td>"+fmt(v.preco)+"</td>"+pagCells+"</tr>";
+      }).join("");
+      return "<h2>"+P.emoji+" "+P.nome+" — pré-venda: "+totQtd+" "+P.unPl+" ("+fmt(totVal)+")</h2>"+
+        "<table><tr><th>Cliente</th><th>Pré-venda</th><th>Levou de fato</th><th>Preço</th><th>Pix</th><th>Dinheiro</th><th>Cartão</th><th>Prazo</th><th>Valor pago</th></tr>"+linhas+"</table>";
+    }
+    var html = "<h1>Lista de entregas — Semana "+fmtDataFull(sem.inicio)+" a "+fmtDataFull(sem.fim)+"</h1>"+
+      "<div>Impresso em "+fmtDataFull(hojeISO())+"</div>";
+    Object.keys(rotas).sort().forEach(function(r){
+      var sd = saidasDaRota(r);
+      var carga = [];
+      if (sd.gas>0) carga.push(sd.gas+" botijões");
+      if (sd.agua>0) carga.push(sd.agua+" galões");
+      html += "<h2 style='margin-top:16px; border-top:2px solid #333; padding-top:8px;'>📍 "+esc(r)+
+        (carga.length>0 ? " — SAIU DO DEPÓSITO: "+carga.join(" + ") : "")+"</h2>"+
+        tabela(rotas[r], "gas") + tabela(rotas[r], "agua");
+    });
+    html += "<div class='rodape'>Anote em \"Levou de fato\" a quantidade real. Marque ☒ em Pix, Dinheiro, Cartão ou Prazo e anote o valor pago.</div>";
+    document.getElementById("areaImpressao").innerHTML = html;
+    window.print();
+  });
+
+  // ================= EXPORTAR =================
+  document.getElementById("btnExportar").addEventListener("click", async function(){
+    var sem = s(); if(!sem){ alert("Nenhuma semana aberta."); return; }
+    var c = calcGeral(sem);
+    var L = [];
+    L.push("SEMANA;"+fmtDataFull(sem.inicio)+";a;"+fmtDataFull(sem.fim));
+    L.push("");
+    function blocoProd(p){
+      var P = PROD[p], cp = c[p==="gas"?"gas":"agua"];
+      L.push("=== "+P.nome.toUpperCase()+" ===");
+      L.push("Estoque inicial;"+cp.ini.qtd+";custo unit;"+String(cp.ini.custo).replace(".",","));
+      L.push("Comprados;"+cp.compQtd+";valor;"+String(cp.compVal.toFixed(2)).replace(".",","));
+      L.push("Custo medio por "+P.un+";"+String(cp.custoMedio.toFixed(2)).replace(".",","));
+      L.push("Vendidos;"+cp.vendidos);
+      L.push("Preco medio de venda;"+String(cp.precoMedio.toFixed(2)).replace(".",","));
+      L.push("Receita;"+String(cp.receita.toFixed(2)).replace(".",","));
+      L.push("Lucro bruto;"+String(cp.lucroBruto.toFixed(2)).replace(".",","));
+      if (p==="gas"){
+        L.push("Gas do Povo - vendidos;"+cp.povoQtd);
+        L.push("Gas do Povo - receita;"+String(cp.povoReceita.toFixed(2)).replace(".",","));
+        L.push("Gas do Povo - lucro bruto;"+String(cp.povoLucroBruto.toFixed(2)).replace(".",","));
+      }
+      L.push("Sobra em estoque;"+cp.estoqueFinal);
+      L.push("");
+    }
+    blocoProd("gas"); blocoProd("agua");
+    L.push("=== COMPRAS ===");
+    L.push("Data;Produto;Fornecedor;Qtd;Preco unit;Motorista nome;Motorista R$;Combustivel;Outros puxada;Total");
+    (sem.compras||[]).forEach(function(x){
+      var pux = (x.gMotorista||0)+(x.gCombustivel||0)+(x.gOutros||0);
+      L.push([fmtDataFull(x.data), PROD[x.produto].nome, x.fornecedor||"", x.qtd, String(x.preco).replace(".",","),
+        x.gMotoristaNome||"",
+        String((x.gMotorista||0).toFixed(2)).replace(".",","),
+        String((x.gCombustivel||0).toFixed(2)).replace(".",","),
+        String((x.gOutros||0).toFixed(2)).replace(".",","),
+        String((x.qtd*x.preco+pux).toFixed(2)).replace(".",",")].join(";"));
+    });
+    L.push("");
+    L.push("=== VENDAS ===");
+    L.push("Data;Rota;Produto;Tipo;Cliente;Qtd;Preco unit;Total;Situacao;Forma;Entregue;Cobranca");
+    (sem.vendas||[]).forEach(function(v){
+      L.push([fmtDataFull(v.data), v.rota||"", PROD[v.produto].nome, v.povo?"Gas do Povo":"Normal", v.cliente, v.qtd, String(v.preco).replace(".",","),
+        String((v.qtd*v.preco).toFixed(2)).replace(".",","),
+        v.pago?"Pago":(v.status==="prazo"?"Prazo":"Paga na entrega"), v.forma||"", v.entregue?"Sim":"Nao", v.cobranca?fmtDataFull(v.cobranca):""].join(";"));
+    });
+    L.push("");
+    L.push("=== GASTOS ===");
+    L.push("Data;Rota;Descricao;Valor");
+    (sem.gastos||[]).forEach(function(g){
+      L.push([fmtDataFull(g.data), g.rota||"", g.descricao, String(Number(g.valor).toFixed(2)).replace(".",",")].join(";"));
+    });
+    L.push("");
+    L.push("=== FECHAMENTO GERAL ===");
+    L.push("Receita total;"+String(c.receita.toFixed(2)).replace(".",","));
+    L.push("Recebido Pix;"+String(c.porForma.Pix.toFixed(2)).replace(".",","));
+    L.push("Recebido Dinheiro;"+String(c.porForma.Dinheiro.toFixed(2)).replace(".",","));
+    L.push("Recebido Cartao;"+String(c.porForma["Cartão"].toFixed(2)).replace(".",","));
+    L.push("A receber (fiado);"+String(c.aReceber.toFixed(2)).replace(".",","));
+    L.push("Gastos;"+String(c.gastos.toFixed(2)).replace(".",","));
+    L.push("LUCRO LIQUIDO;"+String(c.lucro.toFixed(2)).replace(".",","));
+    L.push("Lucro medio por unidade;"+String(c.lucroUnid.toFixed(2)).replace(".",","));
+    var blob = new Blob(["\uFEFF"+L.join("\n")], {type:"text/csv;charset=utf-8"});
+    try {
+      await baixarArquivo("semana-"+sem.inicio+".csv", blob);
+    } catch(e){
+      if (String(e && e.code)!=="declined") alert("Nao consegui salvar o CSV agora. Tente de novo.");
+    }
+  });
+
+  // Campo tocado sempre visível acima do teclado
+  document.addEventListener("focusin", function(e){
+    var el = e.target;
+    if (!el.matches || !el.matches("input, select, textarea")) return;
+    setTimeout(function(){
+      try { el.scrollIntoView({ block:"center", behavior:"smooth" }); } catch(err){}
+    }, 300);
+  });
+
+  carregar();
+})();
+</script>
+</body>
+</html>
