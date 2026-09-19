@@ -983,7 +983,29 @@
           <button class="btn ghost danger" type="button" id="btnSyncSair">Sair do app</button>
         </div>
         <div class="status-line" id="syncStatus">Não conectado.</div>
-        <p class="hint">Sair bloqueia o app neste aparelho e apaga a cópia local. Os dados continuam na nuvem e voltam ao entrar de novo. Para trocar a senha, peça a alteração no servidor.</p>
+        <p class="hint">Sair bloqueia o app neste aparelho e apaga a cópia local. Os dados continuam na nuvem e voltam ao entrar de novo.</p>
+      </div>
+
+      <div class="card">
+        <h2>Trocar senha de acesso</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="senhaAtual">Senha atual</label>
+            <input type="password" id="senhaAtual" autocomplete="current-password">
+          </div>
+          <div class="field">
+            <label for="senhaNova">Nova senha</label>
+            <input type="password" id="senhaNova" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label for="senhaConf">Repita a nova senha</label>
+            <input type="password" id="senhaConf" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="button" id="btnTrocarSenha">Trocar senha</button>
+        </div>
+        <p class="hint">Mínimo de 6 caracteres. Os outros aparelhos vão pedir a senha nova na próxima vez que sincronizarem.</p>
       </div>
 
       <div class="card">
@@ -2324,6 +2346,23 @@
     sync = { key: "", base: 0, ultimo: null }; saveSync();
     try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
     location.reload();
+  });
+  $("btnTrocarSenha").addEventListener("click", async () => {
+    const atual = $("senhaAtual").value, nova = $("senhaNova").value.trim(), conf = $("senhaConf").value.trim();
+    if (!atual) { toast("Digite a senha atual."); $("senhaAtual").focus(); return; }
+    if (nova.length < 6) { toast("A nova senha precisa ter pelo menos 6 caracteres."); $("senhaNova").focus(); return; }
+    if (nova !== conf) { toast("As senhas novas não conferem."); $("senhaConf").focus(); return; }
+    if (!syncAvailable) { toast("A troca de senha só funciona no site publicado."); return; }
+    $("btnTrocarSenha").disabled = true;
+    try {
+      const res = await fetch("/api/sync/senha", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ atual, nova }) });
+      const data = await res.json().catch(() => null);
+      if (res.status !== 200) { toast(data && data.error ? data.error : "Não foi possível trocar a senha."); return; }
+      sync.key = nova; saveSync(); renderSyncForm();
+      $("senhaAtual").value = ""; $("senhaNova").value = ""; $("senhaConf").value = "";
+      toast("Senha trocada. Use a nova senha nos outros aparelhos.");
+    } catch (e) { toast("Sem conexão. Tente de novo."); }
+    finally { $("btnTrocarSenha").disabled = false; }
   });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") runSync(syncPull); });
   window.addEventListener("online", () => runSync(async () => { await syncPull(); await syncPush(); }));
