@@ -794,6 +794,7 @@
               </tr>
             </thead>
             <tbody id="rows"></tbody>
+        <datalist id="modelosDatalist"></datalist>
             <tfoot>
               <tr>
                 <td>Total</td>
@@ -811,7 +812,7 @@
           </table>
         </div>
         <button class="btn dashed" id="addRow" type="button">+ adicionar aparelho</button>
-        <p class="hint"><b>% nota</b> em branco usa o valor dos parâmetros. Os valores por unidade são convertidos pela cotação informada acima.</p>
+        <p class="hint">O campo <b>Modelo</b> sugere os aparelhos da lista de preços (Calculadora) e de compras anteriores; também aceita um nome novo. <b>% nota</b> em branco usa o valor dos parâmetros.</p>
       </div>
 
       <div class="card">
@@ -1297,7 +1298,7 @@
       const c = calcRow(row, s);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><input type="text" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="ex: iPhone 15 128GB"></td>
+        <td><input type="text" list="modelosDatalist" autocomplete="off" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="escolha ou digite o modelo"></td>
         <td class="num"><input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0"></td>
         <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}"></td>
         <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${esc(s.notaPct)}"></td>
@@ -1527,7 +1528,15 @@
   });
 
   /* ---- lista de preços ---- */
+  function renderModelosDatalist() {
+    const seen = new Set(); const out = [];
+    const add = (m) => { const k = String(m || "").trim(); if (k && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); out.push(k); } };
+    state.precos.forEach((p) => add(p.modelo));
+    state.compras.forEach((c) => c.rows.forEach((r) => add(r.modelo)));
+    $("modelosDatalist").innerHTML = out.sort((a, b) => a.localeCompare(b, "pt-BR")).map((m) => `<option value="${esc(m)}"></option>`).join("");
+  }
   function renderPrecos() {
+    renderModelosDatalist();
     const tbody = $("precosRows");
     tbody.innerHTML = "";
     $("precosCount").textContent = state.precos.length + (state.precos.length === 1 ? " modelo" : " modelos");
