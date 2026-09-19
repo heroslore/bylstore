@@ -499,6 +499,27 @@
   .seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
   .field textarea.paste { min-height: 90px; font-size: 0.85rem; }
 
+  /* ---------- login ---------- */
+  .login {
+    min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px;
+    background: var(--paper);
+  }
+  .login-box {
+    width: 100%; max-width: 380px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 26px 24px;
+    box-shadow: var(--shadow);
+  }
+  .login-box .brand { justify-content: center; margin-bottom: 18px; font-size: 1.1rem; }
+  .login-box .brand-mark { width: 34px; height: 34px; font-size: 1rem; border-radius: 9px; }
+  .login-box p { margin: 0 0 16px; color: var(--ink-soft); font-size: 0.88rem; text-align: center; line-height: 1.5; }
+  .login-box .btn { width: 100%; justify-content: center; margin-top: 12px; padding: 11px 14px; }
+  .login-error { color: var(--danger); font-size: 0.84rem; margin-top: 10px; min-height: 1.2em; text-align: center; }
+
   /* ---------- sync indicator ---------- */
   .sync {
     font-size: 0.74rem; color: var(--ink-soft);
@@ -577,7 +598,19 @@
 </style>
 </head>
 <body>
-<div class="app">
+<div class="login" id="loginScreen" hidden>
+  <form class="login-box" id="loginForm" autocomplete="off">
+    <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos</div>
+    <p>Digite a senha de acesso para entrar. Os dados são carregados da nuvem.</p>
+    <div class="field">
+      <label for="loginSenha">Senha</label>
+      <input type="password" id="loginSenha" autocomplete="current-password" required>
+    </div>
+    <button class="btn primary" type="submit" id="btnLogin">Entrar</button>
+    <div class="login-error" id="loginErro"></div>
+  </form>
+</div>
+<div class="app" id="app">
   <header class="topbar">
     <div class="wrap topbar-inner">
       <div class="brand"><span class="brand-mark">A</span> Gestão de Aparelhos <span class="sync" id="syncDot" title="Sincronização" hidden>nuvem</span></div>
@@ -942,21 +975,15 @@
     <!-- ================= AJUSTES ================= -->
     <section id="tab-ajustes" class="tabpanel">
       <div class="card">
-        <h2>Sincronização entre aparelhos</h2>
-        <p class="page-intro" style="margin-bottom:12px">Com a senha de sincronização, os dados ficam guardados na nuvem do site e aparecem iguais no celular, no computador e em qualquer outra máquina onde você entrar com a mesma senha.</p>
-        <div class="grid two">
-          <div class="field">
-            <label for="syncKey">Senha de sincronização</label>
-            <input type="password" id="syncKey" placeholder="digite a senha" autocomplete="off">
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn primary" type="button" id="btnSyncConectar">Conectar</button>
-          <button class="btn" type="button" id="btnSyncAgora" hidden>Sincronizar agora</button>
+        <h2>Acesso e sincronização</h2>
+        <p class="page-intro" style="margin-bottom:12px">Você entrou com a senha de acesso. Os dados ficam na nuvem do site e aparecem iguais em qualquer aparelho onde você entrar com a mesma senha.</p>
+        <div class="actions" style="margin-top:0">
+          <button class="btn" type="button" id="btnSyncAgora">Sincronizar agora</button>
           <span class="spacer"></span>
-          <button class="btn ghost danger" type="button" id="btnSyncSair" hidden>Desconectar</button>
+          <button class="btn ghost danger" type="button" id="btnSyncSair">Sair do app</button>
         </div>
-        <div class="status-line" id="syncStatus">Não conectado. Os dados ficam só neste navegador.</div>
+        <div class="status-line" id="syncStatus">Não conectado.</div>
+        <p class="hint">Sair bloqueia o app neste aparelho e apaga a cópia local. Os dados continuam na nuvem e voltam ao entrar de novo. Para trocar a senha, peça a alteração no servidor.</p>
       </div>
 
       <div class="card">
@@ -2180,13 +2207,7 @@
     $("syncStatus").textContent = text;
   }
   function renderSyncForm() {
-    const on = !!sync.key;
-    $("syncKey").value = sync.key || "";
-    $("btnSyncConectar").hidden = on;
-    $("btnSyncAgora").hidden = !on;
-    $("btnSyncSair").hidden = !on;
-    $("syncKey").disabled = on;
-    if (!on) setSyncUI("", "Não conectado. Os dados ficam só neste navegador.");
+    if (!sync.key) setSyncUI("", "Não conectado.");
     else if (sync.ultimo) setSyncUI("ok", "Conectado. Última sincronização " + new Date(sync.ultimo).toLocaleString("pt-BR") + ".");
     else setSyncUI("", "Conectado. Aguardando a primeira sincronização.");
   }
@@ -2215,6 +2236,7 @@
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => null);
+    if (res.status === 401) { sync = { key: "", base: 0, ultimo: null }; saveSync(); showLogin("A senha mudou. Entre de novo."); }
     return { status: res.status, data };
   }
   const temDados = () => state.compras.length + state.vendas.length + state.clientes.length > 0;
@@ -2261,19 +2283,47 @@
     clearTimeout(syncTimer);
     syncTimer = setTimeout(() => runSync(syncPush), 1200);
   }
-  $("btnSyncConectar").addEventListener("click", async () => {
-    const k = $("syncKey").value.trim();
-    if (!k) { toast("Digite a senha de sincronização."); return; }
-    if (!syncAvailable) { toast("A sincronização só funciona no site publicado."); return; }
-    sync.key = k; sync.base = 0; saveSync(); renderSyncForm();
-    await runSync(() => syncPull({ first: true }));
-    if ($("syncDot").classList.contains("err")) { sync.key = ""; saveSync(); renderSyncForm(); toast("Não conectou. Confira a senha."); }
-    else toast("Conectado à nuvem.");
+  /* ---- login ---- */
+  function showLogin(msg) {
+    $("app").hidden = true;
+    $("loginScreen").hidden = false;
+    $("loginErro").textContent = msg || "";
+    $("loginSenha").value = "";
+    setTimeout(() => $("loginSenha").focus(), 50);
+  }
+  function hideLogin() { $("loginScreen").hidden = true; $("app").hidden = false; }
+  async function verificarSenha(k) {
+    const res = await fetch("/api/sync", { method: "GET", headers: { "x-sync-key": k }, cache: "no-store" });
+    if (res.status === 200) return { ok: true, remote: await res.json().catch(() => null) };
+    if (res.status === 401) return { ok: false, msg: "Senha incorreta." };
+    if (res.status === 503) return { ok: false, msg: "Servidor sem senha configurada." };
+    return { ok: false, msg: "Erro no servidor (" + res.status + ")." };
+  }
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const k = $("loginSenha").value.trim();
+    if (!k) return;
+    $("btnLogin").disabled = true; $("loginErro").textContent = "";
+    try {
+      const r = await verificarSenha(k);
+      if (!r.ok) { $("loginErro").textContent = r.msg; return; }
+      sync.key = k; sync.base = 0; saveSync(); renderSyncForm();
+      hideLogin();
+      await runSync(() => syncPull({ first: true }));
+      toast("Bem-vindo.");
+    } catch (err) {
+      $("loginErro").textContent = "Sem conexão. Verifique a internet e tente de novo.";
+    } finally { $("btnLogin").disabled = false; }
   });
   $("btnSyncAgora").addEventListener("click", () => runSync(async () => { await syncPull(); await syncPush(); }));
-  $("btnSyncSair").addEventListener("click", () => {
-    if (!confirm("Desconectar da nuvem? Os dados continuam neste navegador e na nuvem, mas param de sincronizar.")) return;
-    sync = { key: "", base: 0, ultimo: null }; saveSync(); renderSyncForm();
+  $("btnSyncSair").addEventListener("click", async () => {
+    if (!confirm("Sair do app neste aparelho? A cópia local será apagada; os dados continuam na nuvem.")) return;
+    if (temDados() && $("syncDot").classList.contains("err") && !confirm("A última sincronização falhou. Alterações não enviadas podem ser perdidas. Sair mesmo assim?")) return;
+    clearTimeout(syncTimer);
+    try { await runSync(syncPush); } catch (e) { /* offline */ }
+    sync = { key: "", base: 0, ultimo: null }; saveSync();
+    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    location.reload();
   });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") runSync(syncPull); });
   window.addEventListener("online", () => runSync(async () => { await syncPull(); await syncPush(); }));
@@ -2319,7 +2369,8 @@
   renderAll();
   renderSyncForm();
   try { const t = localStorage.getItem(UI_KEY); if (t && $("tab-" + t)) showTab(t); } catch (e) { /* ignore */ }
-  runSync(syncPull);
+  if (syncAvailable && !sync.key) showLogin();
+  else runSync(syncPull);
 })();
 </script>
 </body>
