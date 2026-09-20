@@ -1,7 +1,7 @@
 // Lê prints da tabela do leilão com o Claude e devolve as linhas em JSON.
 // POST /api/ler-tabela  body { images: [{ media_type, data }] }  (base64, até 4 imagens)
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { json, store, senhaConfere } from "../lib/auth.mjs";
 
