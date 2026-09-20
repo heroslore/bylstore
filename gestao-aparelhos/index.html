@@ -675,12 +675,34 @@
       </div>
 
       <div class="card">
-        <h2>Análise de lances</h2>
+        <h2>Colar tabela do leilão</h2>
+        <p class="page-intro" style="margin-bottom:10px">Copie as linhas da planilha do leilão (Model, Capacity, Color, Offer Quantity, New Offer Price…) e cole aqui. O app monta a análise e busca o preço de venda na sua lista.</p>
+        <div class="field">
+          <textarea id="leilaoPaste" class="paste" placeholder="iPhone 13 Pro Max&#9;128GB&#9;Alpine Green&#9;DLS B+&#9;24&#9;24&#9;$387,00"></textarea>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn primary" type="button" id="btnLeilaoImportar">Analisar texto colado</button>
+          <button class="btn amber" type="button" id="btnLerPrint">Ler print da tabela…</button>
+          <input class="file-hidden" type="file" id="printFile" accept="image/*" multiple>
+          <label class="toggle-row" style="margin:0"><input type="checkbox" id="leilaoSubstituir" checked> <span>substituir a análise atual</span></label>
+        </div>
+        <div class="status-line" id="printStatus">Dica: com a tabela em imagem, use <b>Ler print</b>, ou cole a imagem aqui com Ctrl+V. Até 4 prints por vez.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Análise de lances</h2>
+          <div class="actions" style="margin:0">
+            <span class="status-line" id="calcResumo" style="margin:0"></span>
+            <button class="btn small" type="button" id="btnCalcOrdenar">Ordenar por margem</button>
+          </div>
+        </div>
         <div class="table-scroll">
           <table class="wide">
             <thead>
               <tr>
                 <th>Aparelho</th>
+                <th class="num">Qtd</th>
                 <th class="num">Venda (R$)</th>
                 <th class="num">Lance (US$)</th>
                 <th class="num">Custo em SP</th>
@@ -1453,7 +1475,8 @@
       const ok = mg !== null && mg >= numOr(c.margem, 0);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo" style="min-width:140px;margin-top:${state.precos.length ? 4 : 0}px">` : ""}</td>
+        <td>${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo" style="min-width:140px;margin-top:${state.precos.length ? 4 : 0}px">` : (r.obs ? `<div class="muted" style="font-size:0.76rem;padding-left:6px">${esc(r.obs)}</div>` : "")}</td>
+        <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${r.qty ?? ""}" placeholder="1" style="width:64px;min-width:64px"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${p ? p.preco : (r.venda ?? "")}" ${p ? "disabled" : ""} placeholder="R$"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="lance" value="${r.lance ?? ""}" placeholder="US$"></td>
         <td class="num computed strong">${k ? fmtBRL(custo) : "—"}</td>
@@ -1466,7 +1489,7 @@
     });
     if (!c.rows.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="9" class="muted" style="white-space:normal">Adicione um aparelho, escolha o preço de venda e digite o lance para ver se compensa.</td>`;
+      tr.innerHTML = `<td colspan="10" class="muted" style="white-space:normal">Adicione um aparelho, escolha o preço de venda e digite o lance para ver se compensa. Ou cole a tabela do leilão acima.</td>`;
       tbody.appendChild(tr);
     }
     tbody.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", (e) => {
@@ -1481,10 +1504,12 @@
       const f = e.target.dataset.field, v = e.target.value;
       if (f === "venda") r.venda = v === "" ? null : Number(v);
       else if (f === "lance") r.lance = v === "" ? null : Number(v);
+      else if (f === "qty") r.qty = v === "" ? null : Number(v);
       else r.modelo = v;
-      save(); renderCalcRowComputed(Number(e.target.dataset.idx));
+      save(); renderCalcRowComputed(Number(e.target.dataset.idx)); renderCalcResumo();
     }));
     tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => { c.rows.splice(Number(b.dataset.remove), 1); save(); renderCalc(); }));
+    renderCalcResumo();
   }
   function renderCalcRowComputed(idx) {
     const c = state.calc, r = c.rows[idx];
@@ -1506,7 +1531,7 @@
     cells[2].textContent = fmtPct(mg);
     cells[2].className = "num computed " + (mg === null ? "" : ok ? "pos" : "neg");
     cells[3].textContent = max === null ? "—" : fmtUSD(max);
-    tr.children[7].innerHTML = mg === null ? "" : `<span class="verdict ${ok ? "ok" : "bad"}">${ok ? "bom" : "abaixo da meta"}</span>`;
+    tr.children[8].innerHTML = mg === null ? "" : `<span class="verdict ${ok ? "ok" : "bad"}">${ok ? "bom" : "abaixo da meta"}</span>`;
   }
   $("calcMargem").addEventListener("input", (e) => { state.calc.margem = e.target.value === "" ? 0 : Number(e.target.value); save(); renderCalc(); });
   document.querySelectorAll("#calcBase button").forEach((b) => b.addEventListener("click", () => { state.calc.base = b.dataset.base; save(); renderCalc(); }));
@@ -1518,13 +1543,158 @@
   $("btnCalcParaCompra").addEventListener("click", () => {
     const rows = state.calc.rows.filter((r) => numOr(r.lance, 0) > 0).map((r) => {
       const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
-      return { id: uid(), modelo: p ? p.modelo : (r.modelo || "").trim(), preco: numOr(r.lance, 0), notaPct: null, qty: 1 };
+      return { id: uid(), modelo: p ? p.modelo : (r.modelo || "").trim(), preco: numOr(r.lance, 0), notaPct: null, qty: Math.max(1, Math.round(numOr(r.qty, 1))) };
     }).filter((r) => r.modelo);
     if (!rows.length) { toast("Preencha modelo e lance nos aparelhos que quer levar."); return; }
     const existing = validRows(state.draft.rows);
     if (existing.length && !confirm(`Adicionar ${rows.length} aparelho(s) à compra em andamento?`)) return;
     state.draft.rows = existing.concat(rows);
     save(); renderAll(); showTab("compra"); toast(rows.length + " aparelho(s) adicionado(s) à compra.");
+  });
+
+  function calcRowEval(r) {
+    const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
+    const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+    const lance = numOr(r.lance, 0);
+    const k = lance > 0 ? calcCusto(lance) : null;
+    const mg = venda > 0 && k ? margemDe(venda, k.custoBRL) : null;
+    return { venda, lance, mg, ok: mg !== null && mg >= numOr(state.calc.margem, 0) };
+  }
+  function renderCalcResumo() {
+    const ev = state.calc.rows.map(calcRowEval).filter((e) => e.mg !== null);
+    const el = $("calcResumo");
+    if (!ev.length) { el.textContent = ""; return; }
+    const bons = ev.filter((e) => e.ok).length;
+    el.innerHTML = `<b>${bons}</b> de ${ev.length} batem a meta · ${ev.length - bons} abaixo`;
+  }
+  $("btnCalcOrdenar").addEventListener("click", () => {
+    state.calc.rows.sort((a, b) => (calcRowEval(b).mg ?? -Infinity) - (calcRowEval(a).mg ?? -Infinity));
+    save(); renderCalc();
+  });
+
+  /* ---- importar tabela do leilão ---- */
+  function parseNumero(t) {
+    let x = String(t || "").replace(/[^\d.,-]/g, "");
+    if (!x) return null;
+    if (x.includes(",") && x.includes(".")) x = x.lastIndexOf(",") > x.lastIndexOf(".") ? x.replace(/\./g, "").replace(",", ".") : x.replace(/,/g, "");
+    else if (x.includes(",")) x = /,\d{1,2}$/.test(x) ? x.replace(",", ".") : x.replace(/,/g, "");
+    const n = Number(x);
+    return isFinite(n) ? n : null;
+  }
+  function importarLeilao(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
+    if (!lines.length) return [];
+    const split = (l) => l.includes("\t") ? l.split("\t").map((c) => c.trim()) : l.split(/\s{2,}|;/).map((c) => c.trim());
+    let cols = null;
+    const head = split(lines[0]).map((c) => c.toLowerCase());
+    const find = (...names) => head.findIndex((h) => names.some((n) => h.includes(n)));
+    if (find("model", "modelo") >= 0 && find("price", "preço", "preco", "lance") >= 0) {
+      cols = { model: find("model", "modelo"), cap: find("capacity", "capacidade", "gb"), color: find("color", "cor"), grade: find("grade"),
+        qty: find("offer quantity", "offer qty", "quantity", "qtd", "quant"), price: find("offer price", "price", "preço", "preco", "lance") };
+      lines.shift();
+    }
+    const out = [];
+    lines.forEach((line) => {
+      const c = split(line);
+      let modelo, qty = null, price = null, cap = "", color = "";
+      if (cols) {
+        modelo = c[cols.model] || ""; cap = cols.cap >= 0 ? c[cols.cap] || "" : ""; color = cols.color >= 0 ? c[cols.color] || "" : "";
+        price = parseNumero(c[cols.price]); qty = cols.qty >= 0 ? parseNumero(c[cols.qty]) : null;
+      } else {
+        const nums = c.map((v, i) => ({ v, i, n: parseNumero(v) })).filter((x) => x.n !== null && !/gb|tb/i.test(x.v));
+        if (!nums.length) return;
+        const last = nums[nums.length - 1]; price = last.n;
+        const prev = nums.length > 1 ? nums[nums.length - 2] : null; if (prev && Number.isInteger(prev.n) && prev.n > 0 && prev.n < 10000 && !/[$.,]/.test(prev.v)) qty = prev.n;
+        modelo = c.filter((v, i) => i !== last.i && !(prev && i === prev.i) && !/^(DLS|[A-D][+-]?)$/i.test(v)).join(" ");
+      }
+      modelo = [modelo, cap].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      if (!modelo || !(price > 0)) return;
+      const nomeCompleto = [modelo, color].filter(Boolean).join(" ");
+      const tab = precoTabela(modelo);
+      const pl = tab !== null ? state.precos.find((p) => numOr(p.preco, 0) === tab && precoTabela(p.modelo) === tab) : null;
+      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: tab, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: color });
+    });
+    return out;
+  }
+  $("btnLeilaoImportar").addEventListener("click", () => {
+    const rows = importarLeilao($("leilaoPaste").value);
+    if (!rows.length) { toast("Não reconheci nenhuma linha. Cole direto da planilha, com o preço na última coluna."); return; }
+    $("leilaoPaste").value = "";
+    aplicarLinhas(rows, "texto");
+  });
+
+  /* ---- ler print com IA ---- */
+  function linhasParaCalc(linhas) {
+    return linhas.map((l) => {
+      const modelo = [l.modelo, l.capacidade].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      const preco = numOr(l.preco, 0);
+      if (!modelo || !(preco > 0)) return null;
+      const tab = precoTabela(modelo);
+      const pl = tab !== null ? state.precos.find((p) => numOr(p.preco, 0) === tab && precoTabela(p.modelo) === tab) : null;
+      const q = numOr(l.quantidade, 0);
+      return { id: uid(), precoId: pl ? pl.id : null, modelo: [modelo, l.cor].filter(Boolean).join(" "), venda: tab, lance: preco, qty: q > 0 ? Math.round(q) : null, obs: [l.cor, l.grade].filter(Boolean).join(" · ") };
+    }).filter(Boolean);
+  }
+  function aplicarLinhas(rows, origem) {
+    if (!rows.length) { toast("Nenhuma linha reconhecida" + (origem ? " no " + origem : "") + "."); return; }
+    if ($("leilaoSubstituir").checked) state.calc.rows = rows; else state.calc.rows = state.calc.rows.concat(rows);
+    const semPreco = rows.filter((r) => !(r.venda > 0)).length;
+    save(); renderCalc();
+    toast(`${rows.length} aparelho(s) analisados` + (semPreco ? `. ${semPreco} sem preço de venda na lista: preencha a coluna Venda.` : "."));
+  }
+  function reduzirImagem(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1800;
+        const k = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * k), h = Math.round(img.height * k);
+        const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = cv.toDataURL("image/jpeg", 0.9);
+        resolve({ media_type: "image/jpeg", data: dataUrl.split(",")[1] });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Não consegui abrir a imagem.")); };
+      img.src = url;
+    });
+  }
+  let lendoPrint = false;
+  async function lerPrints(files) {
+    const list = Array.from(files || []).filter((f) => /^image\//.test(f.type)).slice(0, 4);
+    if (!list.length) { toast("Escolha uma imagem (print da tabela)."); return; }
+    if (!syncAvailable || !sync.key) { toast("A leitura de print só funciona no site publicado, depois de entrar."); return; }
+    if (lendoPrint) return;
+    lendoPrint = true;
+    const st = $("printStatus"); const btn = $("btnLerPrint");
+    btn.disabled = true; st.innerHTML = "Preparando " + list.length + " imagem(ns)…";
+    try {
+      const images = [];
+      for (const f of list) images.push(await reduzirImagem(f));
+      st.innerHTML = "Lendo a tabela com IA… isso leva alguns segundos.";
+      const res = await fetch("/api/ler-tabela", { method: "POST", headers: { "content-type": "application/json", "x-sync-key": sync.key }, body: JSON.stringify({ images }) });
+      const data = await res.json().catch(() => null);
+      if (res.status !== 200) { st.innerHTML = "<b>Não deu:</b> " + esc(data && data.error ? data.error : "erro " + res.status); return; }
+      const rows = linhasParaCalc(data.linhas || []);
+      st.innerHTML = `Lidas <b>${(data.linhas || []).length}</b> linha(s) do print.` + (data.tokens ? ` <span class="muted">(${data.tokens.entrada + data.tokens.saida} tokens)</span>` : "");
+      aplicarLinhas(rows, "print");
+    } catch (e) {
+      st.innerHTML = "<b>Não deu:</b> " + esc(e && e.message ? e.message : e);
+    } finally { lendoPrint = false; btn.disabled = false; }
+  }
+  $("btnLerPrint").addEventListener("click", () => $("printFile").click());
+  $("printFile").addEventListener("change", (e) => { lerPrints(e.target.files); e.target.value = ""; });
+  document.addEventListener("paste", (e) => {
+    if (!$("tab-calc").classList.contains("active")) return;
+    const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter((f) => /^image\//.test(f.type));
+    if (files.length) { e.preventDefault(); lerPrints(files); }
+  });
+  const dropZone = $("leilaoPaste");
+  dropZone.addEventListener("dragover", (e) => { e.preventDefault(); });
+  dropZone.addEventListener("drop", (e) => {
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter((f) => /^image\//.test(f.type));
+    if (files.length) { e.preventDefault(); lerPrints(files); }
   });
 
   /* ---- lista de preços ---- */
