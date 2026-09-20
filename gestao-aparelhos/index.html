@@ -741,14 +741,16 @@
         <button class="btn dashed" id="addPreco" type="button">+ adicionar modelo</button>
         <div style="height:14px"></div>
         <div class="field">
-          <label for="precosPaste">Colar lista (uma linha por modelo, com o preço no fim, ex: <b>iPhone 14 128GB 1800</b>)</label>
+          <label for="precosPaste">Colar lista de preços (uma linha por modelo com o preço no fim, ou a lista de WhatsApp inteira)</label>
           <textarea id="precosPaste" class="paste" placeholder="iPhone 13 128GB  1650&#10;iPhone 14 Pro 128GB  2600"></textarea>
         </div>
         <div class="actions" style="margin-top:10px">
           <button class="btn" type="button" id="btnPrecosImportar">Importar linhas</button>
+          <button class="btn" type="button" id="btnPrecosBase">Aplicar tabela base (Shaar Cell <span id="precosBaseData"></span>)</button>
           <span class="spacer"></span>
           <button class="btn ghost danger" type="button" id="btnPrecosLimpar">Apagar lista</button>
         </div>
+        <p class="hint">A tabela base traz o maior preço de cada modelo entre as cores. Aplicar atualiza os modelos que já existem e adiciona os que faltam. A caixa acima também aceita a lista de WhatsApp colada inteira (cabeçalho do modelo e linhas de cor com preço): fica o maior valor de cada modelo.</p>
       </div>
     </section>
 
@@ -1113,11 +1115,18 @@
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
   const newCalcRow = () => ({ id: uid(), precoId: null, modelo: "", venda: null, lance: null });
-  const PRECOS_EXEMPLO = [
-    ["iPhone 13 128GB", 1650], ["iPhone 13 Pro Max 128GB", 2500], ["iPhone 13 Pro Max 256GB", 2650],
-    ["iPhone 14 128GB", 1800], ["iPhone 14 Pro 128GB", 2600], ["iPhone 14 Pro Max 256GB", 3250],
-    ["iPhone 15 128GB", 2500], ["iPhone 15 Pro Max 256GB", 3750], ["iPhone 16 128GB", 3300], ["iPhone 16 Pro Max 256GB", 4750],
+  const PRECOS_BASE_DATA = "20/09/2026";
+  const PRECOS_BASE = [
+    ["iPhone 11 128GB", 1200], ["iPhone 12 Pro 256GB", 1750], ["iPhone 12 Pro Max 256GB", 1950],
+    ["iPhone 13 128GB", 1700], ["iPhone 13 256GB", 1800], ["iPhone 13 Pro Max 128GB", 2500], ["iPhone 13 Pro Max 256GB", 2650],
+    ["iPhone 14 128GB", 1800], ["iPhone 14 Plus 128GB", 1900], ["iPhone 14 Plus 256GB", 2100],
+    ["iPhone 14 Pro 128GB", 2600], ["iPhone 14 Pro 256GB", 2750], ["iPhone 14 Pro 512GB", 2850],
+    ["iPhone 14 Pro Max 128GB", 3000], ["iPhone 14 Pro Max 256GB", 3250], ["iPhone 14 Pro Max 512GB", 3350],
+    ["iPhone 15 128GB", 2500], ["iPhone 15 Plus 128GB", 2600], ["iPhone 15 Pro 128GB", 3150], ["iPhone 15 Pro 512GB", 3450],
+    ["iPhone 15 Pro Max 256GB", 3750], ["iPhone 15 Pro Max 1TB", 4000],
+    ["iPhone 16 128GB", 3300], ["iPhone 16 Pro 128GB", 4000], ["iPhone 16 Pro Max 256GB", 4750],
   ];
+  const PRECOS_EXEMPLO = PRECOS_BASE;
 
   let state = {
     settings: { ...DEFAULT_SETTINGS },
@@ -1743,20 +1752,48 @@
       state.precos.splice(Number(b.dataset.remove), 1); save(); renderPrecos(); renderCalc();
     }));
   }
-  function importarPrecos(text) {
+  function limparNomeModelo(t) {
+    return String(t || "").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, "").replace(/\([^)]*\)/g, "").replace(/[•*:\-–—]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function parsePrecosTexto(text) {
+    const achados = new Map(); // modelo normalizado -> { modelo, preco }
+    let atual = null;
+    text.split(/\r?\n/).forEach((raw) => {
+      const l = limparNomeModelo(raw.replace(/R\$/gi, ""));
+      if (!l) return;
+      const m = l.match(/^(.*?)\s*([\d.]+(?:,\d{1,2})?)\s*$/);
+      const precoStr = m && m[2];
+      const preco = precoStr ? Number(precoStr.replace(/\./g, "").replace(",", ".")) : null;
+      const antes = m ? m[1].trim() : l;
+      const temModelo = /iphone/i.test(antes);
+      if (!(preco > 0)) { if (temModelo) atual = antes; return; }
+      if (preco > 100000 || /^(cep|cnpj|cpf|tel|fone|whats)/i.test(antes)) return; // CEP, telefone etc. não são preços
+      if (temModelo && preco < 100) { atual = l; return; } // "iPhone 13 128" sem preço real
+      const modelo = temModelo ? antes : atual;
+      if (!modelo) return;
+      const k = modelo.toLowerCase().replace(/\s+/g, " ");
+      const ex = achados.get(k);
+      if (!ex || preco > ex.preco) achados.set(k, { modelo, preco });
+    });
+    return [...achados.values()];
+  }
+  function upsertPrecos(lista) {
     let n = 0, upd = 0;
-    text.split(/\r?\n/).forEach((line) => {
-      const l = line.replace(/R\$/gi, "").replace(/[💵💸🔋🇺🇸🇦🇪•*]/g, "").trim();
-      const m = l.match(/^(.*?)[\s:\-–—]+([\d.]+(?:,\d{1,2})?)\s*$/);
-      if (!m) return;
-      const modelo = m[1].replace(/[\s:\-–—]+$/, "").trim();
-      const preco = Number(m[2].replace(/\./g, "").replace(",", "."));
-      if (!modelo || !(preco > 0)) return;
+    lista.forEach(({ modelo, preco }) => {
       const ex = state.precos.find((p) => p.modelo.trim().toLowerCase() === modelo.toLowerCase());
-      if (ex) { ex.preco = preco; upd++; } else { state.precos.push({ id: uid(), modelo, preco }); n++; }
+      if (ex) { if (numOr(ex.preco, 0) !== preco) { ex.preco = preco; upd++; } }
+      else { state.precos.push({ id: uid(), modelo, preco }); n++; }
     });
     return { n, upd };
   }
+  function importarPrecos(text) { return upsertPrecos(parsePrecosTexto(text)); }
+  $("precosBaseData").textContent = PRECOS_BASE_DATA;
+  $("btnPrecosBase").addEventListener("click", () => {
+    if (!confirm("Aplicar a tabela base Shaar Cell de " + PRECOS_BASE_DATA + "? Modelos existentes recebem o preço da tabela; os que faltam são adicionados.")) return;
+    const r = upsertPrecos(PRECOS_BASE.map(([modelo, preco]) => ({ modelo, preco })));
+    save(); renderPrecos(); renderCalc();
+    toast(`Tabela aplicada: ${r.n} adicionado(s), ${r.upd} atualizado(s).`);
+  });
   $("addPreco").addEventListener("click", () => {
     state.precos.push({ id: uid(), modelo: "", preco: 0 }); save(); renderPrecos(); renderCalc();
     const last = $("precosRows").lastElementChild; const f = last && last.querySelector("input"); if (f) f.focus();
