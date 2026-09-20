@@ -301,6 +301,8 @@
   tbody input[type="text"] { min-width: 210px; }
   tbody td.num input { text-align: right; }
   table.compact tbody input[type="text"] { min-width: 150px; }
+  .cell-stack { display: flex; flex-direction: column; gap: 3px; min-width: 240px; max-width: 360px; }
+  .cell-stack select, .cell-stack input[type="text"] { width: 100%; min-width: 0; max-width: none; }
   table.compact tbody td.num input { width: 96px; min-width: 96px; }
   .computed { color: var(--ink-soft); }
   .computed.strong { color: var(--ink); font-weight: 600; }
@@ -1475,7 +1477,7 @@
       const ok = mg !== null && mg >= numOr(c.margem, 0);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo" style="min-width:140px;margin-top:${state.precos.length ? 4 : 0}px">` : (r.obs ? `<div class="muted" style="font-size:0.76rem;padding-left:6px">${esc(r.obs)}</div>` : "")}</td>
+        <td><div class="cell-stack">${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo (sem preço na lista)">` : (r.obs ? `<div class="muted" style="font-size:0.76rem;padding-left:6px">${esc(r.obs)}</div>` : "")}</div></td>
         <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${r.qty ?? ""}" placeholder="1" style="width:64px;min-width:64px"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${p ? p.preco : (r.venda ?? "")}" ${p ? "disabled" : ""} placeholder="R$"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="lance" value="${r.lance ?? ""}" placeholder="US$"></td>
@@ -1610,9 +1612,8 @@
       modelo = [modelo, cap].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
       if (!modelo || !(price > 0)) return;
       const nomeCompleto = [modelo, color].filter(Boolean).join(" ");
-      const tab = precoTabela(modelo);
-      const pl = tab !== null ? state.precos.find((p) => numOr(p.preco, 0) === tab && precoTabela(p.modelo) === tab) : null;
-      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: tab, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: color });
+      const pl = precoEntrada(modelo);
+      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: pl ? numOr(pl.preco, 0) : null, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: color });
     });
     return out;
   }
@@ -1629,10 +1630,9 @@
       const modelo = [l.modelo, l.capacidade].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
       const preco = numOr(l.preco, 0);
       if (!modelo || !(preco > 0)) return null;
-      const tab = precoTabela(modelo);
-      const pl = tab !== null ? state.precos.find((p) => numOr(p.preco, 0) === tab && precoTabela(p.modelo) === tab) : null;
+      const pl = precoEntrada(modelo);
       const q = numOr(l.quantidade, 0);
-      return { id: uid(), precoId: pl ? pl.id : null, modelo: [modelo, l.cor].filter(Boolean).join(" "), venda: tab, lance: preco, qty: q > 0 ? Math.round(q) : null, obs: [l.cor, l.grade].filter(Boolean).join(" · ") };
+      return { id: uid(), precoId: pl ? pl.id : null, modelo: [modelo, l.cor].filter(Boolean).join(" "), venda: pl ? numOr(pl.preco, 0) : null, lance: preco, qty: q > 0 ? Math.round(q) : null, obs: [l.cor, l.grade].filter(Boolean).join(" · ") };
     }).filter(Boolean);
   }
   function aplicarLinhas(rows, origem) {
@@ -1871,7 +1871,8 @@
   $("vendaData").addEventListener("input", (e) => { state.vendaDraft.data = e.target.value; save(); });
 
   const MODIFIERS = ["pro", "max", "plus", "mini"];
-  function precoTabela(modelo) {
+  function precoTabela(modelo) { const e = precoEntrada(modelo); return e ? numOr(e.preco, 0) : null; }
+  function precoEntrada(modelo) {
     const norm = (t) => String(t || "").toLowerCase().replace(/gb/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
     const mods = (t) => MODIFIERS.filter((m) => new RegExp("\\b" + m + "\\b").test(t)).join(",");
     const a = norm(modelo); if (!a) return null;
@@ -1886,7 +1887,7 @@
       else if (ac.startsWith(bc) || bc.startsWith(ac)) sc = Math.min(ac.length, bc.length);
       if (sc > score) { score = sc; best = p; }
     });
-    return best ? numOr(best.preco, 0) : null;
+    return best;
   }
   function stockOptions(selectedKey) {
     const stock = stockList();
