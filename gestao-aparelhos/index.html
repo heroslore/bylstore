@@ -686,7 +686,7 @@
           <input class="file-hidden" type="file" id="printFile" accept="image/*" multiple>
           <label class="toggle-row" style="margin:0"><input type="checkbox" id="leilaoSubstituir" checked> <span>substituir a análise atual</span></label>
         </div>
-        <div class="status-line" id="printStatus">Dica: com a tabela em imagem, use <b>Ler print</b>, ou cole a imagem aqui com Ctrl+V. Até 4 prints por vez.</div>
+        <div class="status-line" id="printStatus">Com a tabela em imagem, use <b>Ler print</b> ou cole a imagem aqui com Ctrl+V. A IA devolve o texto na caixa e o app analisa. Até 4 prints por vez.</div>
       </div>
 
       <div class="card">
@@ -1648,13 +1648,15 @@
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const MAX = 1800;
+        const MAX = 2400;
         const k = Math.min(1, MAX / Math.max(img.width, img.height));
         const w = Math.round(img.width * k), h = Math.round(img.height * k);
         const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
         const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
-        const dataUrl = cv.toDataURL("image/jpeg", 0.9);
-        resolve({ media_type: "image/jpeg", data: dataUrl.split(",")[1] });
+        // PNG mantém o texto nítido; cai para JPEG só se ficar grande demais
+        let dataUrl = cv.toDataURL("image/png"), type = "image/png";
+        if (dataUrl.length > 3_500_000) { dataUrl = cv.toDataURL("image/jpeg", 0.92); type = "image/jpeg"; }
+        resolve({ media_type: type, data: dataUrl.split(",")[1] });
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Não consegui abrir a imagem.")); };
       img.src = url;
@@ -1676,8 +1678,14 @@
       const res = await fetch("/api/ler-tabela", { method: "POST", headers: { "content-type": "application/json", "x-sync-key": sync.key }, body: JSON.stringify({ images }) });
       const data = await res.json().catch(() => null);
       if (res.status !== 200) { st.innerHTML = "<b>Não deu:</b> " + esc(data && data.error ? data.error : "erro " + res.status); return; }
-      const rows = linhasParaCalc(data.linhas || []);
-      st.innerHTML = `Lidas <b>${(data.linhas || []).length}</b> linha(s) do print.` + (data.tokens ? ` <span class="muted">(${data.tokens.entrada + data.tokens.saida} tokens)</span>` : "");
+      const texto = data.texto || "";
+      const ta = $("leilaoPaste");
+      ta.value = ta.value.trim() ? ta.value.trim() + "\n" + texto.split("\n").slice(1).join("\n") : texto;
+      const rows = importarLeilao(texto);
+      const n = numOr(data.linhas, rows.length);
+      st.innerHTML = `A IA leu <b>${n}</b> linha(s) e devolveu o texto na caixa acima. Confira e edite se precisar.` +
+        (data.cortado ? " <b>A resposta foi cortada:</b> envie menos linhas por vez." : "") +
+        (data.tokens ? ` <span class="muted">(${data.tokens.entrada + data.tokens.saida} tokens)</span>` : "");
       aplicarLinhas(rows, "print");
     } catch (e) {
       st.innerHTML = "<b>Não deu:</b> " + esc(e && e.message ? e.message : e);

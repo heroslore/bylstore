@@ -1,24 +1,20 @@
-// Lê prints da tabela do leilão com o Claude e devolve as linhas em JSON.
+// Lê prints da tabela do leilão com o Claude e devolve a tabela em texto (TSV) para o app.
 // POST /api/ler-tabela  body { images: [{ media_type, data }] }  (base64, até 4 imagens)
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod/v4";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { json, store, senhaConfere } from "../lib/auth.mjs";
 
 export const config = { path: "/api/ler-tabela" };
 
-const Linha = z.object({
-  modelo: z.string().describe("Modelo do aparelho como aparece na coluna Model, ex: iPhone 14 Pro Max"),
-  capacidade: z.string().describe("Capacidade, ex: 128GB, 256GB, 1TB; vazio se não houver"),
-  cor: z.string().describe("Cor como aparece na coluna Color; vazio se não houver"),
-  grade: z.string().describe("Grade/condição, ex: DLS A+, TPS B+; vazio se não houver"),
-  estoque: z.number().int().nullable().describe("Coluna Estoque/Stock, ou null"),
-  quantidade: z.number().int().nullable().describe("Coluna Offer Quantity, ou null"),
-  preco: z.number().describe("Preço unitário em dólares da coluna New Offer Price / Price, como número"),
-});
-const Tabela = z.object({ linhas: z.array(Linha) });
-
 const MEDIA = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const HEADER = "Model\tCapacity\tColor\tGrade\tEstoque\tOffer Quantity\tNew Offer Price";
+
+const INSTRUCOES =
+  "Você transcreve prints de uma planilha de leilão de iPhones. Devolva SOMENTE a tabela em texto separado por tabulação (TSV), " +
+  "com esta primeira linha de cabeçalho exatamente: " + HEADER + "\n" +
+  "Regras: uma linha de saída por linha da planilha, na ordem em que aparecem, incluindo linhas repetidas (mesmo modelo, capacidade e cor são ofertas diferentes). " +
+  "Não pule linhas, não invente linhas, não resuma. Se uma linha estiver cortada na borda da imagem e aparecer inteira em outra imagem, use só a inteira. " +
+  "Coluna de preço: número puro em dólares, '$233,00' vira 233. Estoque e Offer Quantity como inteiros. Célula vazia fica vazia. " +
+  "Sem comentários, sem markdown, sem texto antes ou depois da tabela.";
 
 export default async (req) => {
   if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
@@ -38,27 +34,24 @@ export default async (req) => {
 
   const client = new Anthropic({ apiKey });
   const content = images.map((im) => ({ type: "image", source: { type: "base64", media_type: im.media_type, data: im.data } }));
-  content.push({
-    type: "text",
-    text: "As imagens são prints de uma planilha de leilão de iPhones com as colunas Model, Capacity, Color, Grade, Estoque, Offer Quantity e New Offer Price. " +
-      "Extraia TODAS as linhas de todas as imagens, na ordem em que aparecem, sem inventar linhas e sem pular nenhuma. " +
-      "Se a mesma linha aparecer repetida em duas imagens (bordas de recorte), inclua só uma vez. " +
-      "Preço: converta '$233,00' para 233. Números de estoque e quantidade como inteiros.",
-  });
+  content.push({ type: "text", text: "Transcreva a tabela destas " + images.length + " imagem(ns) em TSV, conforme as regras." });
 
   try {
-    const response = await client.messages.parse({
+    const response = await client.messages.create({
       model: "claude-opus-5",
       max_tokens: 16000,
+      system: INSTRUCOES,
       messages: [{ role: "user", content }],
-      output_config: { format: zodOutputFormat(Tabela) },
     });
     if (response.stop_reason === "refusal") return json({ error: "O modelo recusou ler esta imagem." }, 422);
-    if (response.stop_reason === "max_tokens") return json({ error: "Tabela grande demais para uma leitura. Envie menos linhas por vez." }, 422);
-    const parsed = response.parsed_output;
-    if (!parsed || !Array.isArray(parsed.linhas)) return json({ error: "Não consegui interpretar a tabela." }, 422);
+    let texto = response.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+    texto = texto.replace(/^```[a-z]*\s*/i, "").replace(/```\s*$/, "").trim();
+    const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
+    if (!linhas.length) return json({ error: "A IA não devolveu nenhuma linha." }, 422);
+    if (!/model/i.test(linhas[0])) texto = HEADER + "\n" + texto;
+    const nLinhas = texto.split(/\r?\n/).filter((l) => l.trim()).length - 1;
     const usage = response.usage || {};
-    return json({ linhas: parsed.linhas, tokens: { entrada: usage.input_tokens || 0, saida: usage.output_tokens || 0 } });
+    return json({ texto, linhas: nLinhas, cortado: response.stop_reason === "max_tokens", tokens: { entrada: usage.input_tokens || 0, saida: usage.output_tokens || 0 } });
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "Chave da API da Anthropic inválida." }, 502);
     if (e instanceof Anthropic.RateLimitError) return json({ error: "Limite da API atingido. Tente de novo em instantes." }, 503);
