@@ -1463,7 +1463,7 @@
     return state.calc.base === "custo" ? (venda - custo) / custo * 100 : (venda - custo) / venda * 100;
   }
   function precoOptions(sel) {
-    return `<option value="">— digitar —</option>` + state.precos.map((p) => `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.modelo)} · ${fmtBRL(p.preco)}</option>`).join("");
+    return `<option value="">— digitar —</option>` + state.precos.map((p) => `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.modelo)}</option>`).join("");
   }
   function renderCalc() {
     const c = state.calc;
@@ -1607,22 +1607,23 @@
     const out = [];
     lines.forEach((line) => {
       const c = split(line);
-      let modelo, qty = null, price = null, cap = "", color = "";
+      let modelo, qty = null, price = null, cap = "", color = "", grade = "";
       if (cols) {
-        modelo = c[cols.model] || ""; cap = cols.cap >= 0 ? c[cols.cap] || "" : ""; color = cols.color >= 0 ? c[cols.color] || "" : "";
+        modelo = c[cols.model] || ""; cap = cols.cap >= 0 ? c[cols.cap] || "" : ""; color = cols.color >= 0 ? c[cols.color] || "" : ""; grade = cols.grade >= 0 ? c[cols.grade] || "" : "";
         price = parseNumero(c[cols.price]); qty = cols.qty >= 0 ? parseNumero(c[cols.qty]) : null;
       } else {
         const nums = c.map((v, i) => ({ v, i, n: parseNumero(v) })).filter((x) => x.n !== null && !/gb|tb/i.test(x.v));
         if (!nums.length) return;
         const last = nums[nums.length - 1]; price = last.n;
         const prev = nums.length > 1 ? nums[nums.length - 2] : null; if (prev && Number.isInteger(prev.n) && prev.n > 0 && prev.n < 10000 && !/[$.,]/.test(prev.v)) qty = prev.n;
-        modelo = c.filter((v, i) => i !== last.i && !(prev && i === prev.i) && !/^(DLS|[A-D][+-]?)$/i.test(v)).join(" ");
+        const g = c.find((v) => /^(DLS|TPS)\s*[A-D][+-]?$/i.test(v)); if (g) grade = g;
+        modelo = c.filter((v, i) => i !== last.i && !(prev && i === prev.i) && v !== g).join(" ");
       }
       modelo = [modelo, cap].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
       if (!modelo || !(price > 0)) return;
       const nomeCompleto = [modelo, color].filter(Boolean).join(" ");
       const pl = precoEntrada(modelo);
-      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: pl ? numOr(pl.preco, 0) : null, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: color });
+      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: pl ? numOr(pl.preco, 0) : null, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: [color, grade].filter(Boolean).join(" · ") });
     });
     return out;
   }

@@ -1,5 +1,5 @@
 /* Service worker: keeps the app usable offline and when the host is unreachable. */
-const VERSION = "v14";
+const VERSION = "v15";
 const CACHE = "gestao-aparelhos-" + VERSION;
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
