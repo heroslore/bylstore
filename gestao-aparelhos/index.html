@@ -301,6 +301,10 @@
   tbody input[type="text"] { min-width: 210px; }
   tbody td.num input { text-align: right; }
   table.compact tbody input[type="text"] { min-width: 150px; }
+  tr.lot td { background: var(--paper); font-size: 0.82rem; color: var(--ink-soft); }
+  tr.lot td:first-child { border-left: 3px solid var(--amber-soft); }
+  .exp { border: none; background: none; cursor: pointer; color: var(--ink-faint); font-size: 0.8rem; padding: 2px 6px; transition: transform 0.15s; }
+  .exp.open { transform: rotate(90deg); }
   .cell-stack { display: flex; flex-direction: column; gap: 3px; min-width: 240px; max-width: 360px; }
   .cell-stack select, .cell-stack input[type="text"] { width: 100%; min-width: 0; max-width: none; }
   table.compact tbody td.num input { width: 96px; min-width: 96px; }
@@ -620,6 +624,7 @@
         <button class="tab" type="button" data-tab="calc">Calculadora</button>
         <button class="tab active" type="button" data-tab="compra" id="tabBtnCompra">Nova compra</button>
         <button class="tab" type="button" data-tab="compras">Compras <span class="pill" id="pillCompras">0</span></button>
+        <button class="tab" type="button" data-tab="estoque">Estoque <span class="pill" id="pillEstoque">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
         <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
         <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
@@ -882,6 +887,53 @@
       <div class="stats" id="comprasStats"></div>
       <div style="height:16px"></div>
       <div id="comprasList"></div>
+    </section>
+
+    <!-- ================= ESTOQUE ================= -->
+    <section id="tab-estoque" class="tabpanel">
+      <div class="stats" id="estoqueStats"></div>
+      <div style="height:16px"></div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Aparelhos em estoque</h2>
+          <div class="actions" style="margin:0">
+            <input type="search" id="estoqueBusca" placeholder="buscar modelo…" style="border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:7px 10px;font-size:0.88rem;min-width:180px">
+            <button class="btn small" type="button" id="btnEstoquePdf">Gerar PDF</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="wide">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Modelo</th>
+                <th class="num">Qtd</th>
+                <th class="num">Custo un. médio</th>
+                <th class="num">Custo total</th>
+                <th class="num">Venda (lista)</th>
+                <th class="num">Lucro un.</th>
+                <th class="num">Lucro potencial</th>
+                <th class="num">Margem</th>
+              </tr>
+            </thead>
+            <tbody id="estoqueRows"></tbody>
+            <tfoot>
+              <tr>
+                <td></td>
+                <td>Total</td>
+                <td class="num" id="etQtd">—</td>
+                <td></td>
+                <td class="num amber" id="etCusto">—</td>
+                <td class="num" id="etVenda">—</td>
+                <td></td>
+                <td class="num" id="etLucro">—</td>
+                <td class="num" id="etMargem">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p class="hint">Clique na seta para ver os lotes de cada modelo (compra, data e custo). <b>Venda (lista)</b> vem da Lista de preços da Calculadora; o lucro potencial é o que sobra se tudo vender por esse preço.</p>
+      </div>
     </section>
 
     <!-- ================= VENDAS ================= -->
@@ -1899,6 +1951,102 @@
     }));
   }
 
+  /* ================= ESTOQUE ================= */
+  const openEstoque = new Set();
+  function estoqueAgrupado() {
+    const groups = new Map();
+    stockList().filter((s) => s.avail > 0).forEach((s) => {
+      const k = s.modelo.trim().toLowerCase().replace(/\s+/g, " ");
+      if (!groups.has(k)) groups.set(k, { key: k, modelo: s.modelo.trim(), qty: 0, custoBRL: 0, custoUSD: 0, lotes: [] });
+      const g = groups.get(k);
+      g.qty += s.avail; g.custoBRL += s.avail * s.custoBRL; g.custoUSD += s.avail * s.custoUSD;
+      g.lotes.push(s);
+    });
+    const out = [...groups.values()].map((g) => {
+      const venda = precoTabela(g.modelo);
+      const custoMedio = g.qty ? g.custoBRL / g.qty : 0;
+      const lucroUn = venda !== null ? venda - custoMedio : null;
+      return { ...g, custoMedio, venda, lucroUn, lucro: lucroUn !== null ? lucroUn * g.qty : null, vendaTotal: venda !== null ? venda * g.qty : null };
+    });
+    out.sort((a, b) => a.modelo.localeCompare(b.modelo, "pt-BR", { numeric: true }));
+    return out;
+  }
+  function renderEstoque() {
+    const grupos = estoqueAgrupado();
+    const q = ($("estoqueBusca").value || "").trim().toLowerCase();
+    const vis = q ? grupos.filter((g) => g.modelo.toLowerCase().includes(q)) : grupos;
+    const tQty = grupos.reduce((a, g) => a + g.qty, 0);
+    const tCusto = grupos.reduce((a, g) => a + g.custoBRL, 0);
+    const comPreco = grupos.filter((g) => g.venda !== null);
+    const tVenda = comPreco.reduce((a, g) => a + g.vendaTotal, 0);
+    const tCustoCP = comPreco.reduce((a, g) => a + g.custoBRL, 0);
+    const tLucro = tVenda - tCustoCP;
+    const semPreco = grupos.length - comPreco.length;
+    $("pillEstoque").textContent = tQty;
+    $("estoqueStats").innerHTML = `
+      <div class="tile"><div class="label">Aparelhos</div><div class="value">${tQty}</div><div class="sub">${grupos.length} modelo(s)</div></div>
+      <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">dinheiro parado</div></div>
+      <div class="tile"><div class="label">Venda potencial</div><div class="value">${fmtBRL(tVenda)}</div><div class="sub">${semPreco ? semPreco + " modelo(s) sem preço na lista" : "pela lista de preços"}</div></div>
+      <div class="tile ${tLucro < 0 ? "danger" : "teal"}"><div class="label">Lucro potencial</div><div class="value">${fmtBRL(tLucro)}</div><div class="sub">${tVenda > 0 ? "margem de " + fmtPct(tLucro / tVenda * 100) : "—"}</div></div>`;
+
+    const tbody = $("estoqueRows");
+    tbody.innerHTML = "";
+    if (!vis.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="9" class="muted" style="white-space:normal">${grupos.length ? "Nenhum modelo com esse nome." : "Estoque vazio. Salve uma compra na aba Nova compra."}</td>`;
+      tbody.appendChild(tr);
+    }
+    vis.forEach((g) => {
+      const open = openEstoque.has(g.key);
+      const mg = g.venda ? (g.venda - g.custoMedio) / g.venda * 100 : null;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><button class="exp ${open ? "open" : ""}" type="button" data-exp="${esc(g.key)}" aria-label="Ver lotes">▶</button></td>
+        <td><b>${esc(g.modelo)}</b></td>
+        <td class="num">${g.qty}</td>
+        <td class="num computed strong">${fmtBRL(g.custoMedio)}</td>
+        <td class="num computed amber">${fmtBRL(g.custoBRL)}</td>
+        <td class="num">${g.venda !== null ? fmtBRL(g.venda) : "<span class=\"muted\">sem preço</span>"}</td>
+        <td class="num ${g.lucroUn === null ? "muted" : g.lucroUn < 0 ? "neg" : "pos"}">${g.lucroUn === null ? "—" : fmtBRL(g.lucroUn)}</td>
+        <td class="num ${g.lucro === null ? "muted" : g.lucro < 0 ? "neg" : "pos"}">${g.lucro === null ? "—" : fmtBRL(g.lucro)}</td>
+        <td class="num">${fmtPct(mg)}</td>`;
+      tbody.appendChild(tr);
+      if (open) g.lotes.forEach((l) => {
+        const lt = document.createElement("tr");
+        lt.className = "lot";
+        lt.innerHTML = `<td></td><td>${esc(l.compraNome)} · ${fmtDate(l.compraData)}</td><td class="num">${l.avail}${l.sold ? ` <span class="muted">(${l.sold} vendido${l.sold > 1 ? "s" : ""})</span>` : ""}</td><td class="num">${fmtBRL(l.custoBRL)} <span class="muted">(${fmtUSD(l.custoUSD)})</span></td><td class="num">${fmtBRL(l.avail * l.custoBRL)}</td><td colspan="4"></td>`;
+        tbody.appendChild(lt);
+      });
+    });
+    tbody.querySelectorAll("[data-exp]").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.exp;
+      if (openEstoque.has(k)) openEstoque.delete(k); else openEstoque.add(k);
+      renderEstoque();
+    }));
+    $("etQtd").textContent = tQty;
+    $("etCusto").textContent = fmtBRL(tCusto);
+    $("etVenda").textContent = tVenda ? fmtBRL(tVenda) : "—";
+    $("etLucro").textContent = tVenda ? fmtBRL(tLucro) : "—";
+    $("etLucro").className = "num " + (tVenda ? (tLucro < 0 ? "neg" : "pos") : "");
+    $("etMargem").textContent = fmtPct(tVenda > 0 ? tLucro / tVenda * 100 : null);
+  }
+  $("estoqueBusca").addEventListener("input", renderEstoque);
+  $("btnEstoquePdf").addEventListener("click", () => {
+    const grupos = estoqueAgrupado();
+    if (!grupos.length) { toast("Estoque vazio."); return; }
+    const tQty = grupos.reduce((a, g) => a + g.qty, 0), tCusto = grupos.reduce((a, g) => a + g.custoBRL, 0);
+    const html = `<div class="doc">
+      ${docHeader("Estoque de aparelhos", ["Data: " + fmtDate(todayISO()), "Aparelhos: " + tQty, "Custo total: " + fmtBRL(tCusto)])}
+      <table>
+        <thead><tr><th>Modelo</th><th class="num">Qtd</th><th class="num">Custo un. médio</th><th class="num">Custo total</th><th class="num">Venda (lista)</th><th class="num">Lucro potencial</th><th>Lotes</th></tr></thead>
+        <tbody>${grupos.map((g) => `<tr><td>${esc(g.modelo)}</td><td class="num">${g.qty}</td><td class="num">${fmtBRL(g.custoMedio)}</td><td class="num">${fmtBRL(g.custoBRL)}</td><td class="num">${g.venda !== null ? fmtBRL(g.venda) : "—"}</td><td class="num">${g.lucro !== null ? fmtBRL(g.lucro) : "—"}</td><td>${g.lotes.map((l) => esc(l.compraNome) + " (" + l.avail + ")").join(", ")}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td>Total</td><td class="num">${tQty}</td><td></td><td class="num">${fmtBRL(tCusto)}</td><td></td><td></td><td></td></tr></tfoot>
+      </table>
+      <div class="foot">Documento de uso interno · gerado em ${new Date().toLocaleString("pt-BR")}</div>
+    </div>`;
+    printHTML(html, "Estoque - " + fmtDate(todayISO()));
+  });
+
   /* ================= VENDAS ================= */
   function renderVendaDraftHead() {
     $("vendaCliente").value = state.vendaDraft.cliente || "";
@@ -2642,6 +2790,7 @@
     renderDraftHead();
     renderRows();
     renderCompras();
+    renderEstoque();
     renderVendaDraftHead();
     renderVendaRows();
     renderFiltro();
