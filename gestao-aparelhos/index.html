@@ -154,6 +154,25 @@
   }
 
   main { padding-top: 22px; }
+  .page-title { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 6px; }
+  .page-title + .page-intro { margin-top: 0; }
+  .page-title + .filter-bar, .page-title + .stats, .page-title + .card { margin-top: 14px; }
+  thead th { background: var(--card); }
+  tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--paper) 55%, transparent); }
+  .card { box-shadow: var(--shadow); }
+  @media (min-width: 960px) {
+    .app { display: grid; grid-template-columns: 236px minmax(0, 1fr); align-items: start; }
+    .topbar { position: sticky; top: 0; height: 100dvh; border-bottom: none; border-right: 1px solid var(--line); box-shadow: none; overflow-y: auto; }
+    .topbar .wrap { max-width: none; padding-inline: 14px; }
+    .topbar-inner { flex-direction: column; align-items: stretch; gap: 6px; padding-block: 22px 18px; }
+    .brand { font-size: 1.05rem; padding: 0 8px 16px; border-bottom: 1px solid var(--line); margin-bottom: 8px; flex-wrap: wrap; white-space: normal; }
+    .brand .sync { margin-left: auto; }
+    .tabs { flex-direction: column; margin: 0; width: 100%; gap: 2px; overflow: visible; }
+    .tab { justify-content: space-between; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
+    .tab.active { box-shadow: inset 3px 0 0 var(--amber); }
+    main.wrap { max-width: 1180px; margin: 0; padding: 30px 36px 80px; }
+    .banner { margin-top: 0; }
+  }
   .tabpanel { display: none; }
   .tabpanel.active { display: block; }
 
@@ -670,6 +689,7 @@
 
     <!-- ================= CALCULADORA ================= -->
     <section id="tab-calc" class="tabpanel">
+      <h1 class="page-title">Calculadora de lances</h1>
       <p class="page-intro">Confira se um lance vale a pena antes de arrematar. O custo em SP usa os mesmos parâmetros da compra. O lance máximo é o maior valor que ainda entrega o lucro que você quer.</p>
 
       <div class="card">
@@ -791,6 +811,7 @@
 
     <!-- ================= NOVA COMPRA ================= -->
     <section id="tab-compra" class="tabpanel active">
+      <h1 class="page-title">Nova compra</h1>
       <p class="page-intro">Lance do leilão + taxa fixa + frete calculado sobre o valor declarado na nota. O resultado é o custo de cada aparelho já em São Paulo.</p>
 
       <div class="card">
@@ -917,6 +938,7 @@
 
     <!-- ================= COMPRAS ================= -->
     <section id="tab-compras" class="tabpanel">
+      <h1 class="page-title">Compras</h1>
       <p class="page-intro">Cada compra salva vira estoque. Os aparelhos ficam disponíveis na aba Vendas com o custo real de cada um.</p>
       <div class="stats" id="comprasStats"></div>
       <div style="height:16px"></div>
@@ -925,6 +947,7 @@
 
     <!-- ================= ESTOQUE ================= -->
     <section id="tab-estoque" class="tabpanel">
+      <h1 class="page-title">Estoque</h1>
       <div class="stats" id="estoqueStats"></div>
       <div style="height:16px"></div>
       <div class="card">
@@ -997,6 +1020,7 @@
 
     <!-- ================= VENDAS ================= -->
     <section id="tab-vendas" class="tabpanel">
+      <h1 class="page-title">Vendas</h1>
       <div class="filter-bar">
         <div class="chips" id="periodoChips" role="group" aria-label="Período">
           <button class="chip" type="button" data-periodo="hoje">Hoje</button>
@@ -1084,6 +1108,7 @@
 
     <!-- ================= GASTOS ================= -->
     <section id="tab-gastos" class="tabpanel">
+      <h1 class="page-title">Gastos</h1>
       <div class="filter-bar">
         <div class="chips" id="gastosChips" role="group" aria-label="Período">
           <button class="chip" type="button" data-gper="7d">7 dias</button>
@@ -1122,6 +1147,7 @@
 
     <!-- ================= CLIENTES ================= -->
     <section id="tab-clientes" class="tabpanel">
+      <h1 class="page-title">Clientes</h1>
       <div class="card">
         <div class="card-head">
           <h2 id="clienteFormTitle">Novo cliente</h2>
@@ -1151,7 +1177,8 @@
 
     <!-- ================= CENTRAL DE INTELIGÊNCIA ================= -->
     <section id="tab-central" class="tabpanel">
-      <p class="page-intro">Central de Inteligência — HEROS CELL. Peça em português; o coordenador escolhe os agentes, o auditor confere e você aprova o que altera dados.</p>
+      <h1 class="page-title">Central de Inteligência</h1>
+      <p class="page-intro">Peça em português. O coordenador escolhe os agentes, o auditor confere e você aprova tudo que altera dados.</p>
       <div class="stats" id="centralStats"></div>
       <div style="height:16px"></div>
 
@@ -1222,6 +1249,7 @@
 
     <!-- ================= AJUSTES ================= -->
     <section id="tab-ajustes" class="tabpanel">
+      <h1 class="page-title">Ajustes</h1>
       <div class="card">
         <h2>Acesso e sincronização</h2>
         <p class="page-intro" style="margin-bottom:12px">Você entrou com a senha de acesso. Os dados ficam na nuvem do site e aparecem iguais em qualquer aparelho onde você entrar com a mesma senha.</p>
