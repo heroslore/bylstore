@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Central de Inteligência — Heros Cell</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d0a1e;--bg2:#160d2e;--card:#1a1035;--card2:#221545;--gold:#c9a84c;--glt:#f0c060;--gdk:#8a6820;--wht:#fff;--gray:#9889b8;--gray2:#6a5a90;
+--bdr:rgba(201,168,76,.22);--bdr2:rgba(201,168,76,.1);--red:#e05c5c;--rbg:rgba(224,92,92,.15);--grn:#5cba8a;--gbg:rgba(92,186,138,.15);--org:#e09a3c;--obg:rgba(224,154,60,.15);--r:14px;--rs:9px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--wht);min-height:100dvh;font-size:14px}
+.hdr{background:linear-gradient(135deg,#1a0f35,#0d1b4b);padding:1.5rem 16px 1rem;border-bottom:1px solid var(--bdr)}
+.brand{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;color:var(--glt);letter-spacing:.06em}
+.sub{font-size:11px;color:var(--gray);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:14px}
+@media(min-width:900px){.wrap{grid-template-columns:1.4fr 1fr}.full{grid-column:1/-1}}
+.card{background:var(--card);border-radius:var(--r);padding:16px;border:1px solid var(--bdr2);min-width:0}
+.tit{font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--gold);text-transform:uppercase;margin-bottom:12px}
+textarea,input{width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--wht);font:inherit;padding:10px 12px}
+textarea{min-height:70px;resize:vertical}
+button{font:inherit;cursor:pointer}
+.btn{background:linear-gradient(135deg,var(--gdk),var(--gold));color:var(--bg);border:none;border-radius:var(--rs);padding:10px 16px;font-weight:700}
+.btn.gh{background:transparent;color:var(--gold);border:1px solid var(--bdr)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{background:var(--card2);border:1px solid var(--bdr2);color:var(--gray);border-radius:99px;padding:4px 10px;font-size:12px}
+.bdg{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;letter-spacing:.04em}
+.CONCLUIDA,.LIVRE,.APROVADA{background:var(--gbg);color:var(--grn)}.FALHOU,.RECUSADA{background:var(--rbg);color:var(--red)}
+.EM_EXECUCAO,.PENDENTE,.AGUARDANDO_REVISAO,.AGUARDANDO_APROVACAO{background:var(--obg);color:var(--org)}.CANCELADA{background:var(--card2);color:var(--gray)}
+.res{border:1px solid var(--bdr2);border-radius:var(--rs);padding:12px;margin-top:10px;background:var(--bg2)}
+.res h3{font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.res p{color:var(--gray);margin-top:6px}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+td,th{padding:5px 6px;border-bottom:1px solid var(--bdr2);text-align:left;vertical-align:top}
+th{color:var(--gray);font-weight:500}
+td.n{font-family:'DM Mono',monospace;text-align:right;white-space:nowrap}
+.scroll{overflow-x:auto}
+ul{padding-left:18px;margin-top:6px;color:var(--gray)}li{margin:3px 0}
+.rec{border-left:2px solid var(--gold);padding:6px 10px;margin-top:8px;background:rgba(201,168,76,.05)}
+.mini{font-size:11px;color:var(--gray2)}
+.ag{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ag>div{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--rs);padding:8px}
+.ag>div>b{display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+.hid{display:none}
+.erro{color:var(--red);font-size:12px;margin-top:6px;min-height:14px}
+.login{max-width:360px;margin:12vh auto;padding:0 16px}
+</style>
+</head>
+<body>
+<div class="hdr"><div class="brand">CENTRAL DE INTELIGÊNCIA</div><div class="sub">Heros Cell · BYL Importados · agentes rodando neste PC</div></div>
+
+<div id="v-login" class="login hid">
+  <div class="card">
+    <div class="tit">Entrar</div>
+    <input type="password" id="senha" placeholder="Senha da Central (ADMIN_SENHA)" onkeydown="if(event.key==='Enter')entrar()">
+    <div class="erro" id="e-login"></div>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="entrar()">Entrar</button>
+  </div>
+</div>
+
+<div id="v-app" class="wrap hid">
+  <div class="card full">
+    <div class="tit">Comando</div>
+    <textarea id="cmd" placeholder="Ex.: Analise meu estoque e identifique os cinco aparelhos com menor rentabilidade."></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn" id="b-cmd" onclick="comando()">Enviar ao coordenador</button><span class="mini" id="s-cmd"></span></div>
+    <div class="chips" id="exemplos"></div>
+    <div id="resultado"></div>
+  </div>
+  <div class="card"><div class="tit">Pedidos de aprovação</div><div id="aprovacoes"></div></div>
+  <div class="card"><div class="tit">Rotinas automáticas</div><div id="rotinas"></div></div>
+  <div class="card full"><div class="tit">Agentes</div><div class="ag" id="agentes"></div></div>
+  <div class="card"><div class="tit">Tarefas em andamento e erros</div><div id="tarefas"></div></div>
+  <div class="card"><div class="tit">Histórico de operações</div><div id="historico" class="scroll"></div></div>
+</div>
+
+<script>
+const esc=(v)=>String(v??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl=(v)=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmt=(m)=>m.valor==null?'—':m.unidade==='BRL'?brl(m.valor):m.unidade==='fração'?(m.valor*100).toFixed(1).replace('.',',')+'%':Number(m.valor).toLocaleString('pt-BR');
+const dt=(s)=>s?new Date(s).toLocaleString('pt-BR'):'';
+const EXEMPLOS=['Analise meu estoque e identifique os cinco aparelhos com menor rentabilidade','Quais parcelas estão atrasadas?','Relatório geral','Qual o lucro das vendas?','Previsão de demanda'];
+
+async function api(caminho,corpo){
+  const r=await fetch(caminho,corpo?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(corpo)}:{});
+  const j=await r.json().catch(()=>({erro:'resposta inválida'}));
+  if(r.status===401&&caminho!=='/api/entrar'){mostrar(false);throw new Error(j.erro);}
+  if(!r.ok)throw new Error(j.erro||('HTTP '+r.status));
+  return j;
+}
+function mostrar(logado){document.getElementById('v-login').classList.toggle('hid',logado);document.getElementById('v-app').classList.toggle('hid',!logado);}
+async function entrar(){
+  try{await api('/api/entrar',{senha:document.getElementById('senha').value});document.getElementById('senha').value='';mostrar(true);atualizar();}
+  catch(e){document.getElementById('e-login').textContent=e.message;}
+}
+
+async function comando(){
+  const texto=document.getElementById('cmd').value.trim();if(!texto)return;
+  const b=document.getElementById('b-cmd'),s=document.getElementById('s-cmd');
+  b.disabled=true;s.textContent='Coordenador distribuindo para os agentes...';
+  try{const r=await api('/api/comando',{texto});document.getElementById('resultado').innerHTML=relatorio(r);s.textContent='';}
+  catch(e){s.textContent='Erro: '+e.message;}
+  b.disabled=false;atualizar();
+}
+
+function relatorio(r){
+  if(r.status==='NAO_ENTENDIDO')return `<div class="res"><p>${esc(r.mensagem)}</p></div>`;
+  let h=`<p class="mini" style="margin-top:12px">Pedido ${esc(r.pedido)} · interpretado por ${r.interpretacao==='ia'?'IA':'regras'} · ${dt(r.gerado_em)} · <span class="bdg ${esc(r.status)}">${esc(r.status)}</span></p>`;
+  if(r.entendimento)h+=`<p class="mini">${esc(r.entendimento)}</p>`;
+  if(r.conflitos?.length)h+=`<div class="res" style="border-color:var(--org)"><h3>Conflitos entre agentes</h3><ul>${r.conflitos.map(c=>`<li>${esc(JSON.stringify(c))}</li>`).join('')}</ul></div>`;
+  for(const x of r.resultados){
+    h+=`<div class="res"><h3><span>${esc(x.agente.replace(/_/g,' '))} · ${esc(x.acao)}</span><span class="bdg ${esc(x.status)}">${esc(x.status)}</span></h3>`;
+    if(x.resumo)h+=`<p>${esc(x.resumo)}</p>`;
+    if(x.erro)h+=`<p style="color:var(--red)">${esc(x.erro)}</p>`;
+    if(x.metricas.length)h+=`<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th>Método</th></tr>${x.metricas.map(m=>`<tr><td>${esc(m.nome.replace(/_/g,' '))}${m.tipo==='estimativa'?' <span class="bdg PENDENTE">estimativa</span>':''}</td><td class="n">${esc(fmt(m))}</td><td class="mini">${esc(m.metodo)}</td></tr>`).join('')}</table></div>`;
+    if(x.menor_rentabilidade?.length)h+=`<div class="scroll"><table><tr><th>Menor rentabilidade</th><th>Margem de contribuição</th></tr>${x.menor_rentabilidade.map(i=>`<tr><td>${esc(i.produto)} <span class="mini">${esc(i.cod)}</span></td><td class="n">${esc(brl(i.margem_contribuicao))}</td></tr>`).join('')}</table></div>`;
+    for(const rc of x.recomendacoes)h+=`<div class="rec"><b>${esc(rc.acao)}</b><div class="mini">Motivo: ${esc(rc.motivo)} · Método: ${esc(rc.metodo)} · Origem: ${esc(rc.origem)} · Dados de ${dt(rc.data_referencia)}</div>${rc.limitacoes?.length?`<div class="mini">Limitações: ${esc(rc.limitacoes.join('; '))}</div>`:''}</div>`;
+    if(x.limitacoes.length)h+=`<ul>${x.limitacoes.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`;
+    const fontes=x.fontes.map(f=>`${f.ferramenta} (${f.fonte}, ${dt(f.consultado_em)})`).join(' · ');
+    h+=`<p class="mini">${fontes?'Fontes: '+esc(fontes)+' · ':''}Auditor: ${x.auditoria?(x.auditoria.aprovado?'aprovado':'reprovado')+(x.auditoria.rodada?` após ${x.auditoria.rodada} correção(ões)`:''):'—'}</p></div>`;
+  }
+  return h;
+}
+
+async function decidir(id,aprovar,nivel){
+  let confirmacao=null,motivo=null;
+  if(aprovar&&nivel>=3){confirmacao=document.getElementById('cf-'+id).value.trim().toUpperCase();if(!confirmacao){alert('Digite o código de confirmação.');return;}}
+  if(!aprovar)motivo=document.getElementById('cf-'+id)?.value||null;
+  try{await api('/api/aprovacao',{id,aprovar,confirmacao,motivo});}catch(e){alert(e.message);}
+  atualizar();
+}
+async function rotina(nome,acao){try{await api('/api/rotina',{nome,acao});}catch(e){alert(e.message);}atualizar();}
+
+async function atualizar(){
+  let e;try{e=await api('/api/estado');}catch(x){return;}
+  document.getElementById('agentes').innerHTML=e.agentes.map(a=>`<div><b>${esc(a.nome)}</b><span class="bdg ${esc(a.estado)}">${a.estado==='LIVRE'?'livre':'em execução'}</span><div class="mini" style="margin-top:4px">${a.concluidas} concluídas · ${a.falhas} falhas</div></div>`).join('');
+  document.getElementById('aprovacoes').innerHTML=e.aprovacoes_pendentes.length?e.aprovacoes_pendentes.map(a=>`<div class="res"><h3><span>${esc(a.resumo||a.ferramenta)}</span><span class="bdg AGUARDANDO_APROVACAO">nível ${a.nivel}</span></h3>
+    <p class="mini">${esc(a.ferramenta)} · pedido por ${esc(a.solicitado_por)} · ${esc(JSON.stringify(a.input))} · expira ${dt(a.expira_em)}</p>
+    ${a.nivel>=3?`<p class="mini" style="color:var(--org)">Operação crítica. Para aprovar, digite o código <b>${esc(a.codigo_confirmacao)}</b>.</p>`:''}
+    <input id="cf-${esc(a.id)}" placeholder="${a.nivel>=3?'Código de confirmação':'Motivo (opcional, se recusar)'}" style="margin-top:6px">
+    <div class="row" style="margin-top:6px"><button class="btn sm" onclick="decidir('${esc(a.id)}',true,${a.nivel})">Aprovar e executar</button><button class="btn gh sm" onclick="decidir('${esc(a.id)}',false,${a.nivel})">Recusar</button></div></div>`).join(''):'<p class="mini">Nenhum pedido aguardando você.</p>';
+  document.getElementById('rotinas').innerHTML=e.rotinas.map(r=>`<div class="res"><h3><span>${esc(r.nome)} · ${esc(r.horario)}</span><span class="bdg ${r.ativo?'LIVRE':'CANCELADA'}">${r.ativo?'ativa':'desativada'}</span></h3><p class="mini">${esc(r.descricao)}</p>
+    <p class="mini">Última: ${r.ultima_execucao?`${dt(r.ultima_execucao.em)} · ${esc(r.ultima_execucao.status)} · ${r.ultima_execucao.falhas} falha(s)`:'nunca'}</p>
+    <div class="row" style="margin-top:6px"><button class="btn sm" onclick="rotina('${esc(r.nome)}','executar')">Rodar agora</button><button class="btn gh sm" onclick="rotina('${esc(r.nome)}','${r.ativo?'desativar':'ativar'}')">${r.ativo?'Desativar':'Ativar'}</button></div></div>`).join('');
+  const abertas=e.tarefas_abertas.map(t=>`<tr><td>${esc(t.task_id)}</td><td>${esc(t.agent)}</td><td>${esc(t.action)}</td><td><span class="bdg ${esc(t.status)}">${esc(t.status)}</span></td></tr>`).join('');
+  const erros=e.erros.slice(-10).reverse().map(t=>`<tr><td>${esc(t.task_id)}</td><td>${esc(t.agente)}</td><td colspan="2" style="color:var(--red)">${esc(t.erro)}</td></tr>`).join('');
+  document.getElementById('tarefas').innerHTML=(abertas||erros)?`<div class="scroll"><table>${abertas}${erros}</table></div>`:'<p class="mini">Nada em andamento e nenhum erro.</p>';
+  document.getElementById('historico').innerHTML=`<p class="mini">Trilha de auditoria ${e.trilha_integra?'íntegra':'<b style="color:var(--red)">ADULTERADA</b>'}</p><table>${e.historico.slice().reverse().slice(0,20).map(h=>`<tr><td class="mini" style="white-space:nowrap">${new Date(h.em).toLocaleTimeString('pt-BR')}</td><td>${esc(h.ator)}</td><td>${esc(h.acao)}</td><td class="mini">${esc(h.task_id||'')}</td></tr>`).join('')}</table>`;
+}
+
+document.getElementById('exemplos').innerHTML=EXEMPLOS.map(x=>`<button class="chip" onclick="document.getElementById('cmd').value=this.textContent">${esc(x)}</button>`).join('');
+fetch('/api/estado').then(r=>{mostrar(r.ok);if(r.ok)atualizar();});
+setInterval(()=>{if(!document.getElementById('v-app').classList.contains('hid'))atualizar();},15000);
+</script>
+</body>
+</html>
