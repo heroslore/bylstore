@@ -1,0 +1,13 @@
+{
+  "name": "bylstore",
+  "private": true,
+  "type": "module",
+  "description": "BYL STORE — programa de gestão (index.html) + camada multiagente (agentes/)",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test testes/*.test.mjs",
+    "central": "node --env-file-if-exists=agentes.env agentes/servidor.js",
+    "pedido": "node --env-file-if-exists=agentes.env agentes/cli.js",
+    "rotinas": "node --env-file-if-exists=agentes.env agentes/cli.js --rotinas"
+  }
+}

@@ -10,7 +10,7 @@ entram como uma camada nova, ao lado.
 |---|---|---|
 | Linguagem | JavaScript (ESM), Node 20+ | é a linguagem do programa e do `byl-whatsapp` |
 | Bibliotecas | **nenhuma nova** | `fetch` nativo para Supabase e Anthropic; testes com `node --test` |
-| Servidor | funções serverless na Vercel (`api/`) + cron | mesmo padrão do `byl-whatsapp`; a página estática não pode guardar chaves |
+| Servidor | **no PC do Ygor** (`agentes/servidor.js`, Node 22). Decisão de 22/10/2026: modelo misto | sem custo de servidor; dados continuam no Supabase; Vercel fica como opção futura |
 | Banco | o mesmo Supabase, **tabelas novas** com prefixo `agente_` | o banco continua sendo a fonte oficial; nada existente é alterado |
 | IA | API da Anthropic, chave só em variável de ambiente | a IA interpreta o pedido e explica; **os números vêm de funções determinísticas** |
 | Acesso dos agentes | por ferramentas registradas, cada uma com nível, contrato e lista de agentes autorizados | nenhum agente fala direto com o banco |
@@ -75,8 +75,15 @@ testes/                    os 12 testes obrigatórios
 - Nível 2 e 3 só executam com aprovação gravada por usuário humano autenticado; texto de agente não vale como aprovação.
 - IMEI só aparece mascarado (`35*********1234`) para agentes; completo só para o proprietário.
 
-## 5. Informações que preciso do Ygor
+## 5. Situação em 22/10/2026
 
-1. O programa é este `bylstore` mesmo, ou existe outro (em qual pasta do PC)?
+- Núcleo, 12 agentes e Central local: feitos, 16 testes passando. Ver `AGENTES.md`.
+  (Os especialistas ficaram num arquivo só, `agentes/especialistas.js`; a API virou o servidor local `agentes/servidor.js`.)
+- Segurança do banco: login no `index.html` + `supabase/migracoes/000_fechar_acesso_publico.sql`, aguardando o Ygor aplicar.
+- Leitura real conferida (somente leitura): 9 produtos, 11 unidades, R$ 8.844,39 em estoque a custo.
+
+## 6. Informações que ainda preciso do Ygor
+
+1. Onde o programa fica publicado (o GitHub Pages do repositório está desligado).
 2. Um sistema só para BYL STORE e Heros Cell, ou separados?
-3. Pode usar a Vercel (como no `byl-whatsapp`) para o servidor dos agentes?
+3. Quais sites/concorrentes são fontes autorizadas de preço (Agente 02).
