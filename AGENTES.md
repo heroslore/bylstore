@@ -22,8 +22,8 @@ Pela linha de comando: `npm run pedido -- "quais parcelas estão atrasadas?"`
 
 1. Supabase → Authentication → Users → **Add user**: o seu e-mail (marque *Auto Confirm User*) e `agentes@byl.local`.
 2. Supabase → Authentication → Sign In / Providers: **desligue "Allow new users to sign up"**.
-3. Publique o `index.html` novo (tem tela de login).
-4. No SQL Editor, rode `supabase/migracoes/000_fechar_acesso_publico.sql` trocando `TROQUE-PELO-SEU-EMAIL@exemplo.com` pelo seu e-mail.
+3. Faça o merge deste PR: a Vercel publica o `index.html` novo (com tela de login) sozinha.
+4. Logo em seguida, no SQL Editor, rode `supabase/migracoes/000_fechar_acesso_publico.sql` trocando `TROQUE-PELO-SEU-EMAIL@exemplo.com` pelo seu e-mail.
    Emergência: `000_desfazer.sql` volta ao acesso aberto.
 
 Depois disso a chave pública do código não abre mais nada: só entra quem está na tabela `app_usuarios`

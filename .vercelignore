@@ -1,0 +1,9 @@
+agentes/
+core/
+testes/
+supabase/
+central.html
+agentes.env*
+INICIAR-CENTRAL.bat
+*.md
+package.json
