@@ -629,7 +629,12 @@
     #printArea { display: block; }
     .doc { color: #111; font-family: "Instrument Sans", Helvetica, Arial, sans-serif; }
     .doc-head { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 16px; }
-    .doc-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+    .doc-brand { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+    .doc-title { font-size: 15px; font-weight: 600; margin: 10px 0 0; text-transform: uppercase; letter-spacing: 0.04em; color: #333; }
+    .doc .garantia { border: 1px solid #111; padding: 10px 12px; margin-top: 18px; }
+    .doc .garantia p { font-size: 11px; line-height: 1.5; margin: 4px 0; text-align: justify; }
+    .doc .garantia .prazo { margin-top: 6px; }
+    .doc .sign .sub { font-size: 10px; color: #666; }
     .doc-sub { color: #555; font-size: 12px; line-height: 1.5; }
     .doc-meta { text-align: right; font-size: 12px; line-height: 1.6; }
     .doc table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
@@ -801,11 +806,11 @@
         </div>
         <div class="actions" style="margin-top:10px">
           <button class="btn" type="button" id="btnPrecosImportar">Importar linhas</button>
-          <button class="btn" type="button" id="btnPrecosBase">Aplicar tabela base (Shaar Cell <span id="precosBaseData"></span>)</button>
+          <button class="btn" type="button" id="btnPrecosBase">Completar com o catálogo (iPhone 11 ao 17, sem Mini)</button><span id="precosBaseData" hidden></span>
           <span class="spacer"></span>
           <button class="btn ghost danger" type="button" id="btnPrecosLimpar">Apagar lista</button>
         </div>
-        <p class="hint">A tabela base traz o maior preço de cada modelo entre as cores. Aplicar atualiza os modelos que já existem e adiciona os que faltam. A caixa acima também aceita a lista de WhatsApp colada inteira (cabeçalho do modelo e linhas de cor com preço): fica o maior valor de cada modelo.</p>
+        <p class="hint">A lista fica sempre em ordem de modelo e capacidade. Modelos com preço 0 aparecem como "sem preço" e não entram nos cálculos até você preencher. A caixa acima também aceita a lista de WhatsApp colada inteira (cabeçalho do modelo e linhas de cor com preço): fica o maior valor de cada modelo.</p>
       </div>
     </section>
 
@@ -1307,7 +1312,16 @@
             <label for="contato">Contato (WhatsApp, Pix, e-mail)</label>
             <input type="text" id="contato" placeholder="ex: (11) 9 9999-9999 · Pix: chave">
           </div>
+          <div class="field">
+            <label for="responsavel">Responsável (nome completo)</label>
+            <input type="text" id="responsavel" placeholder="ex: Ygor Augusto dos Santos Oliveira">
+          </div>
+          <div class="field" style="grid-column: 1 / -1">
+            <label for="garantia">Termo de garantia impresso no documento</label>
+            <textarea id="garantia" class="paste" style="min-height:110px"></textarea>
+          </div>
         </div>
+        <div class="actions" style="margin-top:8px"><button class="btn small" type="button" id="btnGarantiaPadrao">Restaurar texto padrão</button></div>
       </div>
 
       <div class="card">
@@ -1354,7 +1368,8 @@
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
 
-  const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cotacao: 5.40, empresa: "", contato: "" };
+  const GARANTIA_PADRAO = "A loja garante exclusivamente defeitos de fabricação (vícios ocultos) pelo prazo de 30 (trinta) dias a contar da data da compra. Não há garantia para qualquer outro tipo de defeito, incluindo danos por queda, impacto, líquidos, mau uso, oxidação, violação do aparelho, desgaste de bateria ou problemas decorrentes de software e reparos feitos por terceiros. O cliente declara ter conferido o aparelho no ato da compra.";
+  const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cotacao: 5.40, empresa: "Heros Cell", responsavel: "Ygor Augusto dos Santos Oliveira", contato: "", garantia: GARANTIA_PADRAO };
   const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cotacao"];
 
   const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
@@ -1364,16 +1379,18 @@
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
   const newCalcRow = () => ({ id: uid(), precoId: null, modelo: "", venda: null, lance: null });
   const PRECOS_BASE_DATA = "20/09/2026";
-  const PRECOS_BASE = [
-    ["iPhone 11 128GB", 1200], ["iPhone 12 Pro 256GB", 1750], ["iPhone 12 Pro Max 256GB", 1950],
-    ["iPhone 13 128GB", 1700], ["iPhone 13 256GB", 1800], ["iPhone 13 Pro Max 128GB", 2500], ["iPhone 13 Pro Max 256GB", 2650],
-    ["iPhone 14 128GB", 1800], ["iPhone 14 Plus 128GB", 1900], ["iPhone 14 Plus 256GB", 2100],
-    ["iPhone 14 Pro 128GB", 2600], ["iPhone 14 Pro 256GB", 2750], ["iPhone 14 Pro 512GB", 2850],
-    ["iPhone 14 Pro Max 128GB", 3000], ["iPhone 14 Pro Max 256GB", 3250], ["iPhone 14 Pro Max 512GB", 3350],
-    ["iPhone 15 128GB", 2500], ["iPhone 15 Plus 128GB", 2600], ["iPhone 15 Pro 128GB", 3150], ["iPhone 15 Pro 512GB", 3450],
-    ["iPhone 15 Pro Max 256GB", 3750], ["iPhone 15 Pro Max 1TB", 4000],
-    ["iPhone 16 128GB", 3300], ["iPhone 16 Pro 128GB", 4000], ["iPhone 16 Pro Max 256GB", 4750],
-  ];
+  // Preços conhecidos (Shaar Cell 20/09/2026, maior valor entre cores). Modelos sem preço entram com 0 para você preencher.
+  const PRECOS_CONHECIDOS = { "iPhone 11 128GB": 1200, "iPhone 12 Pro 256GB": 1750, "iPhone 12 Pro Max 256GB": 1950, "iPhone 13 128GB": 1700, "iPhone 13 256GB": 1800, "iPhone 13 Pro Max 128GB": 2500, "iPhone 13 Pro Max 256GB": 2650,
+    "iPhone 14 128GB": 1800, "iPhone 14 Plus 128GB": 1900, "iPhone 14 Plus 256GB": 2100, "iPhone 14 Pro 128GB": 2600, "iPhone 14 Pro 256GB": 2750, "iPhone 14 Pro 512GB": 2850, "iPhone 14 Pro Max 128GB": 3000, "iPhone 14 Pro Max 256GB": 3250, "iPhone 14 Pro Max 512GB": 3350,
+    "iPhone 15 128GB": 2500, "iPhone 15 Plus 128GB": 2600, "iPhone 15 Pro 128GB": 3150, "iPhone 15 Pro 512GB": 3450, "iPhone 15 Pro Max 256GB": 3750, "iPhone 15 Pro Max 1TB": 4000, "iPhone 16 128GB": 3300, "iPhone 16 Pro 128GB": 4000, "iPhone 16 Pro Max 256GB": 4750 };
+  const CATALOGO = [["iPhone 11", ["64GB", "128GB", "256GB"]], ["iPhone 11 Pro", ["64GB", "256GB", "512GB"]], ["iPhone 11 Pro Max", ["64GB", "256GB", "512GB"]],
+    ["iPhone 12", ["64GB", "128GB", "256GB"]], ["iPhone 12 Pro", ["128GB", "256GB", "512GB"]], ["iPhone 12 Pro Max", ["128GB", "256GB", "512GB"]],
+    ["iPhone 13", ["128GB", "256GB", "512GB"]], ["iPhone 13 Pro", ["128GB", "256GB", "512GB", "1TB"]], ["iPhone 13 Pro Max", ["128GB", "256GB", "512GB", "1TB"]],
+    ["iPhone 14", ["128GB", "256GB", "512GB"]], ["iPhone 14 Plus", ["128GB", "256GB", "512GB"]], ["iPhone 14 Pro", ["128GB", "256GB", "512GB", "1TB"]], ["iPhone 14 Pro Max", ["128GB", "256GB", "512GB", "1TB"]],
+    ["iPhone 15", ["128GB", "256GB", "512GB"]], ["iPhone 15 Plus", ["128GB", "256GB", "512GB"]], ["iPhone 15 Pro", ["128GB", "256GB", "512GB", "1TB"]], ["iPhone 15 Pro Max", ["256GB", "512GB", "1TB"]],
+    ["iPhone 16e", ["128GB", "256GB", "512GB"]], ["iPhone 16", ["128GB", "256GB", "512GB"]], ["iPhone 16 Plus", ["128GB", "256GB", "512GB"]], ["iPhone 16 Pro", ["128GB", "256GB", "512GB", "1TB"]], ["iPhone 16 Pro Max", ["256GB", "512GB", "1TB"]],
+    ["iPhone 17", ["256GB", "512GB"]], ["iPhone 17 Air", ["256GB", "512GB", "1TB"]], ["iPhone 17 Pro", ["256GB", "512GB", "1TB"]], ["iPhone 17 Pro Max", ["256GB", "512GB", "1TB", "2TB"]]];
+  const PRECOS_BASE = CATALOGO.flatMap(([m, caps]) => caps.map((c) => [m + " " + c, PRECOS_CONHECIDOS[m + " " + c] || 0]));
   const PRECOS_EXEMPLO = PRECOS_BASE;
 
   let state = {
@@ -1546,7 +1563,7 @@
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
   /* ================= NOVA COMPRA ================= */
-  const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato") };
+  const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato"), responsavel: $("responsavel"), garantia: $("garantia") };
 
   function renderSettings() {
     const s = state.settings;
@@ -1557,6 +1574,8 @@
     settingsEls.cotacao.value = s.cotacao;
     settingsEls.empresa.value = s.empresa || "";
     settingsEls.contato.value = s.contato || "";
+    settingsEls.responsavel.value = s.responsavel || "";
+    settingsEls.garantia.value = s.garantia === undefined || s.garantia === null ? GARANTIA_PADRAO : s.garantia;
     document.querySelectorAll("[data-setting]").forEach((el) => { if (document.activeElement !== el) el.value = s[el.dataset.setting]; });
   }
   document.querySelectorAll("[data-setting]").forEach((el) => el.addEventListener("input", () => {
@@ -1565,10 +1584,10 @@
   }));
   Object.entries(settingsEls).forEach(([key, el]) => {
     el.addEventListener("input", () => {
-      if (key === "empresa" || key === "contato") state.settings[key] = el.value;
+      if (["empresa", "contato", "responsavel", "garantia"].includes(key)) state.settings[key] = el.value;
       else state.settings[key] = el.value === "" ? 0 : Number(el.value);
       save();
-      if (key !== "empresa" && key !== "contato") { renderSettings(); renderRows(); renderCalc(); }
+      if (!["empresa", "contato", "responsavel", "garantia"].includes(key)) { renderSettings(); renderRows(); renderCalc(); }
     });
   });
 
@@ -1735,7 +1754,7 @@
     return state.calc.base === "custo" ? (venda - custo) / custo * 100 : (venda - custo) / venda * 100;
   }
   function precoOptions(sel) {
-    return `<option value="">— digitar —</option>` + state.precos.map((p) => `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.modelo)}</option>`).join("");
+    return `<option value="">— digitar —</option>` + state.precos.map((p) => `<option value="${p.id}" ${p.id === sel ? "selected" : ""}>${esc(p.modelo)}${numOr(p.preco, 0) > 0 ? "" : " (sem preço)"}</option>`).join("");
   }
   function renderCalc() {
     const c = state.calc;
@@ -2014,9 +2033,18 @@
     const add = (m) => { const k = String(m || "").trim(); if (k && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); out.push(k); } };
     state.precos.forEach((p) => add(p.modelo));
     state.compras.forEach((c) => c.rows.forEach((r) => add(r.modelo)));
-    $("modelosDatalist").innerHTML = out.sort((a, b) => a.localeCompare(b, "pt-BR")).map((m) => `<option value="${esc(m)}"></option>`).join("");
+    $("modelosDatalist").innerHTML = out.sort((a, b) => { const x = chaveModelo(a), y = chaveModelo(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return x[3].localeCompare(y[3]); }).map((m) => `<option value="${esc(m)}"></option>`).join("");
   }
+  function chaveModelo(nome) {
+    const t = String(nome || "").toLowerCase();
+    const num = Number((t.match(/iphone\s*(\d+)/) || [])[1] || 999);
+    const variante = /pro max/.test(t) ? 5 : /\bpro\b/.test(t) ? 4 : /\bair\b/.test(t) ? 3 : /\bplus\b/.test(t) ? 2 : /\b\d+e\b/.test(t) ? 1 : 0;
+    const cap = (t.match(/(\d+)\s*tb/) ? Number(t.match(/(\d+)\s*tb/)[1]) * 1024 : Number((t.match(/(\d+)\s*gb/) || [])[1] || 0));
+    return [num, variante, cap, t];
+  }
+  function ordenarPrecos(lista) { return lista.sort((a, b) => { const x = chaveModelo(a.modelo), y = chaveModelo(b.modelo); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return x[3].localeCompare(y[3]); }); }
   function renderPrecos() {
+    ordenarPrecos(state.precos);
     renderModelosDatalist();
     const tbody = $("precosRows");
     tbody.innerHTML = "";
@@ -2025,7 +2053,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><input type="text" data-idx="${idx}" data-field="modelo" value="${esc(p.modelo)}" placeholder="ex: iPhone 14 128GB"></td>
-        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="preco" value="${p.preco ?? ""}" placeholder="R$"></td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="preco" value="${numOr(p.preco, 0) > 0 ? p.preco : ""}" placeholder="sem preço" style="${numOr(p.preco, 0) > 0 ? "" : "border-color:var(--amber)"}"></td>
         <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover" title="Remover">✕</button></td>`;
       tbody.appendChild(tr);
     });
@@ -2075,7 +2103,7 @@
     let n = 0, upd = 0;
     lista.forEach(({ modelo, preco }) => {
       const ex = state.precos.find((p) => p.modelo.trim().toLowerCase() === modelo.toLowerCase());
-      if (ex) { if (numOr(ex.preco, 0) !== preco) { ex.preco = preco; upd++; } }
+      if (ex) { if (preco > 0 && numOr(ex.preco, 0) !== preco) { ex.preco = preco; upd++; } }
       else { state.precos.push({ id: uid(), modelo, preco }); n++; }
     });
     return { n, upd };
@@ -2083,7 +2111,7 @@
   function importarPrecos(text) { return upsertPrecos(parsePrecosTexto(text)); }
   $("precosBaseData").textContent = PRECOS_BASE_DATA;
   $("btnPrecosBase").addEventListener("click", () => {
-    if (!confirm("Aplicar a tabela base Shaar Cell de " + PRECOS_BASE_DATA + "? Modelos existentes recebem o preço da tabela; os que faltam são adicionados.")) return;
+    if (!confirm("Completar a lista com todos os modelos do iPhone 11 ao 17 (sem Mini)? Modelos que já existem mantêm o seu preço; os que faltam entram com o preço da Shaar Cell de " + PRECOS_BASE_DATA + " quando conhecido, ou zerados para você preencher.")) return;
     const r = upsertPrecos(PRECOS_BASE.map(([modelo, preco]) => ({ modelo, preco })));
     save(); renderPrecos(); renderCalc();
     toast(`Tabela aplicada: ${r.n} adicionado(s), ${r.upd} atualizado(s).`);
@@ -2808,10 +2836,13 @@
     window.addEventListener("afterprint", restore);
     setTimeout(() => window.print(), 50);
   }
+  const docEmpresa = () => (state.settings.empresa || "").trim() || DEFAULT_SETTINGS.empresa;
+  const docResponsavel = () => (state.settings.responsavel || "").trim() || DEFAULT_SETTINGS.responsavel;
+  const docGarantia = () => (state.settings.garantia === undefined || state.settings.garantia === null) ? GARANTIA_PADRAO : String(state.settings.garantia).trim();
   function docHeader(title, metaLines) {
     const s = state.settings;
     return `<div class="doc-head">
-      <div><div class="doc-title">${esc(title)}</div><div class="doc-sub">${esc(s.empresa || "")}${s.contato ? "<br>" + esc(s.contato) : ""}</div></div>
+      <div><div class="doc-brand">${esc(docEmpresa())}</div><div class="doc-sub">${esc(docResponsavel())}${s.contato ? "<br>" + esc(s.contato) : ""}</div><div class="doc-title">${esc(title)}</div></div>
       <div class="doc-meta">${metaLines.map(esc).join("<br>")}</div>
     </div>`;
   }
@@ -2849,6 +2880,7 @@
     </div>`;
     printHTML(html, "Compra - " + c.nome);
   }
+  function somarDias(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoOf(d); }
   function printVenda(v) {
     const t = vendaTotals(v);
     const cl = state.clientes.find((c) => c.id === v.clienteId);
@@ -2862,7 +2894,8 @@
         <tfoot><tr><td colspan="2">Total</td><td class="num">${t.qty}</td><td></td><td class="num">${fmtBRL(t.venda)}</td></tr></tfoot>
       </table>
       <div class="total-box"><div>Total: ${fmtBRL(t.venda)}</div></div>
-      <div class="sign"><div>${esc(state.settings.empresa || "Vendedor")}</div><div>${esc(v.clienteNome)}</div></div>
+      ${docGarantia() ? `<div class="section garantia"><h3>Termo de garantia</h3><p>${esc(docGarantia())}</p><p class="prazo">Garantia de vícios de fabricação: <b>30 dias</b>, de ${fmtDate(v.data)} a ${fmtDate(somarDias(v.data, 30))}.</p></div>` : ""}
+      <div class="sign"><div>${esc(docEmpresa())}<br><span class="sub">${esc(docResponsavel())}</span></div><div>${esc(v.clienteNome)}<br><span class="sub">cliente</span></div></div>
       <div class="foot">Documento gerado em ${new Date().toLocaleString("pt-BR")}</div>
     </div>`;
     printHTML(html, "Aparelhos - " + v.clienteNome + " - " + fmtDate(v.data));
@@ -2935,6 +2968,7 @@
     banner.hidden = !precisa;
     if (precisa) $("backupBannerText").textContent = dias === null ? "Seus dados ainda não têm backup. Se o navegador for limpo, eles somem." : "Seu último backup foi há " + dias + " dias.";
   }
+  $("btnGarantiaPadrao").addEventListener("click", () => { state.settings.garantia = GARANTIA_PADRAO; save(); renderSettings(); toast("Texto padrão restaurado."); });
   $("btnBackupBaixar").addEventListener("click", baixarBackup);
   $("btnBackupEnviar").addEventListener("click", enviarBackup);
   if (navigator.share && navigator.canShare) { try { if (navigator.canShare({ files: [new File(["x"], "x.json", { type: "application/json" })] })) $("btnBackupEnviar").hidden = false; } catch (e) { /* not supported */ } }
