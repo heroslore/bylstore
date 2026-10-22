@@ -779,7 +779,7 @@
           <span class="spacer"></span>
           <button class="btn ghost danger" type="button" id="btnCalcLimpar">Limpar análise</button>
         </div>
-        <p class="hint"><b>Lance máx.</b> é o maior lance que ainda atinge o lucro desejado. Escolha o aparelho da lista para preencher o preço de venda, ou digite um preço direto.</p>
+        <p class="hint"><b>Lance máx.</b> é o maior lance que ainda atinge o lucro desejado. O preço de venda vem da lista e pode ser alterado na própria linha; apague o campo para voltar ao valor da lista.</p>
       </div>
 
       <div class="card">
@@ -1431,7 +1431,8 @@
       }
       // first visit: example rows so the screen is not empty
       state.precos = PRECOS_EXEMPLO.map(([modelo, preco]) => ({ id: uid(), modelo, preco }));
-      state.calc.rows = [{ id: uid(), precoId: state.precos[4].id, modelo: state.precos[4].modelo, venda: 2600, lance: 359 }];
+      const seed = state.precos.find((x) => x.modelo === "iPhone 14 Pro 128GB") || state.precos[0];
+      state.calc.rows = [{ id: uid(), precoId: seed.id, modelo: seed.modelo, venda: null, lance: 359, qty: 3 }];
       state.draft.rows = [
         { id: uid(), modelo: "iPhone 12 128GB White DLS B+", preco: 163, notaPct: 90, qty: 3 },
         { id: uid(), modelo: "iPhone 13 128GB C", preco: 195, notaPct: 90, qty: 4 },
@@ -1747,7 +1748,7 @@
     tbody.innerHTML = "";
     c.rows.forEach((r, idx) => {
       const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
-      const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+      const venda = vendaDaLinha(r, p);
       const lance = numOr(r.lance, 0);
       const k = lance > 0 ? calcCusto(lance) : null;
       const custo = k ? k.custoBRL : 0;
@@ -1759,7 +1760,7 @@
       tr.innerHTML = `
         <td><div class="cell-stack">${state.precos.length ? `<select data-idx="${idx}" data-field="precoId">${precoOptions(r.precoId)}</select>` : ""}${!p ? `<input type="text" data-idx="${idx}" data-field="modelo" value="${esc(r.modelo)}" placeholder="modelo (sem preço na lista)">` : (r.obs ? `<div class="muted" style="font-size:0.76rem;padding-left:6px">${esc(r.obs)}</div>` : "")}</div></td>
         <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${r.qty ?? ""}" placeholder="1" style="width:64px;min-width:64px"></td>
-        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${p ? p.preco : (r.venda ?? "")}" ${p ? "disabled" : ""} placeholder="R$"></td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${r.venda ?? (p ? p.preco : "")}" placeholder="${p ? p.preco : "R$"}" title="${p && r.venda !== null && r.venda !== undefined && numOr(r.venda, 0) !== numOr(p.preco, 0) ? "Lista: R$ " + p.preco : ""}"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="lance" value="${r.lance ?? ""}" placeholder="US$"></td>
         <td class="num computed strong">${k ? fmtBRL(custo) : "—"}</td>
         <td class="num computed ${lucro === null ? "" : lucro < 0 ? "neg" : "pos"}">${lucro === null ? "—" : fmtBRL(lucro)}</td>
@@ -1778,7 +1779,7 @@
       const r = c.rows[Number(e.target.dataset.idx)];
       const p = state.precos.find((x) => x.id === e.target.value);
       r.precoId = p ? p.id : null;
-      if (p) { r.modelo = p.modelo; r.venda = p.preco; }
+      if (p) { r.modelo = p.modelo; r.venda = null; }
       save(); renderCalc();
     }));
     tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", (e) => {
@@ -1798,7 +1799,7 @@
     const tr = $("calcRows").children[idx];
     if (!r || !tr) return;
     const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
-    const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+    const venda = vendaDaLinha(r, p);
     const lance = numOr(r.lance, 0);
     const k = lance > 0 ? calcCusto(lance) : null;
     const custo = k ? k.custoBRL : 0;
@@ -1834,9 +1835,11 @@
     save(); renderAll(); showTab("compra"); toast(rows.length + " aparelho(s) adicionado(s) à compra.");
   });
 
+  // Preço de venda da linha: o que o usuário digitou vale sempre; sem digitação, usa o da lista.
+  const vendaDaLinha = (r, p) => (r.venda !== null && r.venda !== undefined && r.venda !== "") ? numOr(r.venda, 0) : (p ? numOr(p.preco, 0) : 0);
   function calcRowEval(r) {
     const p = r.precoId ? state.precos.find((x) => x.id === r.precoId) : null;
-    const venda = p ? numOr(p.preco, 0) : numOr(r.venda, 0);
+    const venda = vendaDaLinha(r, p);
     const lance = numOr(r.lance, 0);
     const k = lance > 0 ? calcCusto(lance) : null;
     const mg = venda > 0 && k ? margemDe(venda, k.custoBRL) : null;
@@ -1894,7 +1897,7 @@
       if (!modelo || !(price > 0)) return;
       const nomeCompleto = [modelo, color].filter(Boolean).join(" ");
       const pl = precoEntrada(modelo);
-      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: pl ? numOr(pl.preco, 0) : null, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: [color, grade].filter(Boolean).join(" · ") });
+      out.push({ id: uid(), precoId: pl ? pl.id : null, modelo: nomeCompleto, venda: null, lance: price, qty: qty && qty > 0 ? Math.round(qty) : null, obs: [color, grade].filter(Boolean).join(" · ") });
     });
     return out;
   }
