@@ -10,6 +10,14 @@ test("cálculo de custo bate com o app (nota 70%, dólar 5,40 e nota 90%, dólar
   assert.equal(D.round2(d.custoBRL), 1469.02);
   assert.equal(D.round2(d.frete1), 15.73); assert.equal(D.round2(d.frete2), 16.78);
 });
+test("entrada direta: custo em R$ sem cálculo de leilão", () => {
+  const s = estadoExemplo();
+  s.compras.push({ id: "c9", nome: "Entrada direta", data: "2026-10-20", settings: s.settings, rows: [{ id: "r9", modelo: "iPhone 15 128GB", preco: 0, custoBRL: 2100, qty: 2 }], origem: "direta" });
+  const k = D.calcRow(s.compras[2].rows[0], s.settings);
+  assert.equal(k.custoBRL, 2100); assert.ok(k.direto); assert.equal(D.round2(k.lBRL), 4200);
+  assert.equal(D.estoqueAgrupado(s).find((g) => g.modelo === "iPhone 15 128GB").qty, 2);
+  assert.ok(!D.inconsistencias(s).some((i) => i.tipo === "lance_zerado"));
+});
 test("estoque desconta vendas e agrupa por modelo com custo médio", () => {
   const s = estadoExemplo();
   const stock = D.stockList(s);

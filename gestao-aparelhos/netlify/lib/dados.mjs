@@ -10,6 +10,11 @@ export const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2
 
 /* ---------------- cálculo (espelho exato do app) ---------------- */
 export function calcRow(row, s) {
+  if (row.custoBRL !== null && row.custoBRL !== undefined && row.custoBRL !== "") {
+    const custoBRL = numOr(row.custoBRL, 0); const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
+    const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
+    return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, custoUSD, custoBRL, qty, cotacao: cot, direto: true, lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
+  }
   const preco = numOr(row.preco, 0);
   const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
   const valorNota = preco * notaPct / 100;
@@ -199,7 +204,7 @@ export function inconsistencias(state) {
   (state.compras || []).forEach((c) => {
     if (!c.rows || !c.rows.length) probs.push({ tipo: "compra_sem_itens", ref: c.id, detalhe: `Compra "${c.nome}" sem aparelhos.` });
     (c.rows || []).forEach((r) => {
-      if (!(numOr(r.preco, 0) > 0)) probs.push({ tipo: "lance_zerado", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}" na compra "${c.nome}" com lance zero.` });
+      if (!(numOr(r.preco, 0) > 0) && !(numOr(r.custoBRL, 0) > 0)) probs.push({ tipo: "lance_zerado", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}" na compra "${c.nome}" sem lance nem custo.` });
       const sold = soldQty(state, c.id, r.id) + lostQty(state, c.id, r.id);
       if (sold > numOr(r.qty, 0)) probs.push({ tipo: "estoque_negativo", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}": ${sold} vendidos/baixados de ${r.qty} comprados.` });
       if (!precoEntrada(state, r.modelo)) probs.push({ tipo: "modelo_sem_preco", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}" não tem preço na lista de venda.` });

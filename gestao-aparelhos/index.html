@@ -998,6 +998,22 @@
       </div>
 
       <div class="card">
+        <h2>Entrada direta no estoque</h2>
+        <p class="page-intro" style="margin-bottom:12px">Para aparelho comprado fora do leilão ou já em mãos: informe o que pagou por unidade e pronto. Compras de leilão continuam em Nova compra, com o cálculo de frete e nota.</p>
+        <div class="grid">
+          <div class="field" style="grid-column: span 2"><label for="entModelo">Modelo</label><input type="text" id="entModelo" list="modelosDatalist" autocomplete="off" placeholder="escolha ou digite o modelo"></div>
+          <div class="field"><label for="entQty">Quantidade</label><input type="number" id="entQty" min="1" step="1" value="1"></div>
+          <div class="field"><label for="entCusto">Pago por aparelho</label><div class="input-group"><span>R$</span><input type="number" id="entCusto" step="0.01" min="0" placeholder="0,00"></div></div>
+          <div class="field"><label for="entData">Data</label><input type="date" id="entData"></div>
+          <div class="field" style="grid-column: span 2"><label for="entOrigem">Origem / observação</label><input type="text" id="entOrigem" placeholder="ex: comprado de cliente, troca, fornecedor local"></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="button" id="btnEntrada">Adicionar ao estoque</button>
+          <span class="status-line" id="entStatus" style="margin:0"></span>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Saída sem venda (perda, brinde, troca, defeito)</h2>
         <div class="grid">
           <div class="field" style="grid-column: span 2">
@@ -1489,6 +1505,12 @@
 
   /* ---------------- calculation ---------------- */
   function calcRow(row, s) {
+    if (row.custoBRL !== null && row.custoBRL !== undefined && row.custoBRL !== "") {
+      const custoBRL = numOr(row.custoBRL, 0); const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
+      const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
+      return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, custoUSD, custoBRL, qty, direto: true,
+        lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
+    }
     const preco = numOr(row.preco, 0);
     const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
     const valorNota = preco * notaPct / 100;
@@ -1621,7 +1643,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><input type="text" list="modelosDatalist" autocomplete="off" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="escolha ou digite o modelo"></td>
-        <td class="num"><input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0"></td>
+        <td class="num">${c.direto ? `<span class="muted" title="Entrada direta: custo informado em R$">direto</span>` : `<input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0">`}</td>
         <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}"></td>
         <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${esc(s.notaPct)}"></td>
         <td class="num computed">${fmtUSD(c.valorNota)}</td>
@@ -1714,7 +1736,7 @@
   });
 
   function validRows(rows) {
-    return rows.filter((r) => (r.modelo || "").trim() && numOr(r.preco, 0) > 0);
+    return rows.filter((r) => (r.modelo || "").trim() && (numOr(r.preco, 0) > 0 || numOr(r.custoBRL, 0) > 0));
   }
   $("btnSalvarCompra").addEventListener("click", () => {
     const d = state.draft;
@@ -1722,7 +1744,7 @@
     if (!rows.length) { toast("Preencha pelo menos um aparelho com modelo e lance."); return; }
     const nome = (d.nome || "").trim() || ("Compra " + fmtDate(d.data));
     const snap = pickSnap(state.settings);
-    const clean = rows.map((r) => ({ id: r.id || uid(), modelo: r.modelo.trim(), preco: numOr(r.preco, 0), notaPct: isBlank(r.notaPct) ? null : numOr(r.notaPct, 0), qty: Math.max(1, Math.round(numOr(r.qty, 1))) }));
+    const clean = rows.map((r) => ({ id: r.id || uid(), modelo: r.modelo.trim(), preco: numOr(r.preco, 0), notaPct: isBlank(r.notaPct) ? null : numOr(r.notaPct, 0), qty: Math.max(1, Math.round(numOr(r.qty, 1))), ...(numOr(r.custoBRL, 0) > 0 ? { custoBRL: numOr(r.custoBRL, 0) } : {}) }));
     if (d.editingId) {
       const c = state.compras.find((x) => x.id === d.editingId);
       if (!c) { toast("Compra não encontrada."); state.draft = newDraft(); save(); renderAll(); return; }
@@ -2188,7 +2210,7 @@
               <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Perdas</th><th class="num">Estoque</th></tr></thead>
               <tbody>
                 ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, lost: 0, avail: k.qty };
-                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${k.notaPct}%</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
+                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.direto ? "<span class=\"muted\">direto</span>" : fmtUSD(k.preco)}</td><td class="num">${k.direto ? "—" : k.notaPct + "%"}</td><td class="num">${k.direto ? "—" : fmtUSD(k.valorNota)}</td><td class="num">${k.direto ? "—" : fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
               </tbody>
             </table>
           </div>
@@ -2313,6 +2335,22 @@
   }
   $("estoqueBusca").addEventListener("input", renderEstoque);
 
+  /* ---- entrada direta no estoque ---- */
+  $("btnEntrada").addEventListener("click", () => {
+    const modelo = $("entModelo").value.trim(); const qty = Math.max(1, Math.round(numOr($("entQty").value, 1))); const custo = numOr($("entCusto").value, 0);
+    if (!modelo) { toast("Informe o modelo."); $("entModelo").focus(); return; }
+    if (!(custo > 0)) { toast("Informe quanto pagou por aparelho."); $("entCusto").focus(); return; }
+    const data = $("entData").value || todayISO(); const origem = $("entOrigem").value.trim();
+    const snap = pickSnap(state.settings);
+    const nome = "Entrada direta " + fmtDate(data) + (origem ? " · " + origem : "");
+    state.compras.unshift({ id: uid(), nome, data, settings: snap, rows: [{ id: uid(), modelo, preco: 0, custoBRL: custo, notaPct: null, qty }], criadoEm: Date.now(), origem: "direta" });
+    const v = precoTabela(modelo);
+    $("entStatus").innerHTML = `Adicionado: ${qty} × ${esc(modelo)} a ${fmtBRL(custo)}.` + (v !== null ? ` Venda pela lista: ${fmtBRL(v)}, margem ${fmtPct((v - custo) / v * 100)}.` : " Este modelo não tem preço na lista.");
+    $("entModelo").value = ""; $("entQty").value = 1; $("entCusto").value = ""; $("entOrigem").value = "";
+    save(); renderAll(); toast("Aparelho no estoque. Já aparece em Nova venda.");
+  });
+  if (!$("entData").value) $("entData").value = todayISO();
+
   /* ---- perdas / saídas sem venda ---- */
   const perdaCusto = (p) => itemCusto({ compraId: p.compraId, rowId: p.rowId, custoBRL: p.custoBRL });
   const perdasCustoTotal = () => (state.perdas || []).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
@@ -2430,7 +2468,7 @@
     });
     if (!state.vendaDraft.itens.length) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="8" class="muted" style="white-space:normal">Nenhum aparelho adicionado. ${stock.some((s) => s.avail > 0) ? "Clique em “adicionar aparelho” e escolha um item do estoque." : "Salve uma compra primeiro para ter aparelhos em estoque."}</td>`;
+      tr.innerHTML = `<td colspan="8" class="muted" style="white-space:normal">Nenhum aparelho adicionado. ${stock.some((s) => s.avail > 0) ? "Clique em “adicionar aparelho” e escolha um item do estoque." : "Para ter aparelhos aqui, registre a compra do leilão em Nova compra ou use Entrada direta no estoque, na aba Estoque."}</td>`;
       tbody.appendChild(tr);
     }
     tbody.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", (e) => {
@@ -2501,7 +2539,7 @@
     $("vtLucro").className = "num " + (any && venda > 0 ? (lucro < 0 ? "neg" : "pos") : "");
   }
   $("addVendaRow").addEventListener("click", () => {
-    if (!stockList().some((s) => s.avail > 0)) { toast("Sem aparelhos em estoque. Salve uma compra primeiro."); return; }
+    if (!stockList().some((s) => s.avail > 0)) { toast("Sem aparelhos em estoque. Registre uma compra ou use Entrada direta na aba Estoque."); return; }
     state.vendaDraft.itens.push({ compraId: null, rowId: null, qty: 1, preco: null, obs: "" });
     save(); renderVendaRows();
     const sels = $("vendaRows").querySelectorAll("select");
