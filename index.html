@@ -172,6 +172,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 <div class="hdr">
   <div class="hdr-brand">BYL STORE</div>
   <div class="hdr-sub">Gestão de Vendas · Importados</div>
+  <div id="hdr-user" style="position:absolute;top:3.3rem;right:1.25rem;z-index:2;font-size:11px;color:var(--gray)"></div>
 </div>
 
 <!-- TAB ORÇAMENTO -->
@@ -322,6 +323,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
     Baixar imagem
   </button>
   <button class="btn ghost" onclick="closeM('m-ig')">Fechar</button>
+</div></div>
+
+<!-- MODAL LOGIN -->
+<div class="mbg hid" id="m-login"><div class="mo">
+  <div class="mt">Entrar</div>
+  <div class="msub">Acesso restrito à equipe BYL STORE</div>
+  <div class="fl"><label class="fll">E-mail</label><div class="ir"><input type="email" id="lg-email" autocomplete="username"></div></div>
+  <div class="fl"><label class="fll">Senha</label><div class="ir"><input type="password" id="lg-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()"></div></div>
+  <div id="lg-erro" style="color:var(--red);font-size:12px;min-height:16px;margin-top:6px"></div>
+  <button class="btn" onclick="entrar()">Entrar</button>
 </div></div>
 
 <button id="btn-sync" onclick="syncAll()" style="position:fixed;bottom:72px;right:16px;z-index:99;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#8a6820,#c9a84c);border:none;color:#0d0a1e;font-size:20px;cursor:pointer;box-shadow:0 2px 12px rgba(201,168,76,.4);display:flex;align-items:center;justify-content:center">&#x21BB;</button>
@@ -498,7 +509,7 @@ function salvarOrc(venda,custo){
   const p=prods()[+idx];
   orcs.unshift({id:'o'+Date.now(),criado:td(),produto:p,custo,venda,
     planos:{p6:{...PS.p6},p8:{...PS.p8},p12:{...PS.p12}},status:'pendente'});
-  sv('byl_orc',orcs); alert('Orçamento salvo no histórico!');
+  sv('byl_orc',orcs); saveOrc(orcs[0]); alert('Orçamento salvo no histórico!');
 }
 
 function enviarWA(venda){
@@ -995,33 +1006,68 @@ function closeM(id){document.getElementById(id).classList.add('hid');}
 /* SUPABASE */
 const SB_URL='https://ouvxejdflebmsyzoohca.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91dnhlamRmbGVibXN5em9vaGNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNDYzMTUsImV4cCI6MjA5MzkyMjMxNX0.RewBZ6f1TtFRGcJ6fGGsvnD-LredJDydPCF6d-U5FVg';
-async function sbGet(t,q){try{const r=await fetch(SB_URL+'/rest/v1/'+t+(q?'?'+q:''),{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});if(!r.ok){console.error('GET',r.status);return[];}return await r.json();}catch(e){console.error('GET err',e);return[];}}
-async function sbUpsert(t,d){try{const r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify(Array.isArray(d)?d:[d])});if(!r.ok)console.error('UPSERT',r.status,await r.text());}catch(e){console.error('UPSERT err',e);}}
-async function sbDel(t,c,v){try{await fetch(SB_URL+'/rest/v1/'+t+'?'+c+'=eq.'+encodeURIComponent(v),{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});}catch(e){console.error('DEL err',e);}}
+/* Sessão: o acesso ao banco exige login (Supabase Auth). A chave acima é pública por natureza;
+   quem protege os dados são as regras de acesso (RLS) do banco. */
+let sbSess=ld('byl_sess',null);
+async function sbAuth(grant,body){
+  const r=await fetch(SB_URL+'/auth/v1/token?grant_type='+grant,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error_description||j.msg||('HTTP '+r.status));
+  sbSess={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+(j.expires_in||3600)*1000,email:(j.user&&j.user.email)||(sbSess&&sbSess.email)||''};
+  sv('byl_sess',sbSess);mostrarUsuario();return sbSess;
+}
+async function sbToken(){
+  if(!sbSess)return null;
+  if(Date.now()>sbSess.expires_at-60000){try{await sbAuth('refresh_token',{refresh_token:sbSess.refresh_token});}catch(e){sair(true);return null;}}
+  return sbSess.access_token;
+}
+async function sbH(extra){const t=await sbToken();if(!t){pedirLogin();throw new Error('sem login');}return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+t},extra||{});}
+function semAcesso(st){if(st===401){sair(true);}else if(st===403)alert('Seu usuário não tem permissão para alterar os dados.');}
+function pedirLogin(){document.getElementById('m-login').classList.remove('hid');}
+function mostrarUsuario(){document.getElementById('hdr-user').innerHTML=sbSess?`${sbSess.email} · <a href="#" onclick="sair();return false" style="color:var(--gold)">Sair</a>`:'';}
+async function entrar(){
+  const email=document.getElementById('lg-email').value.trim(),senha=document.getElementById('lg-senha').value;
+  const er=document.getElementById('lg-erro');er.textContent='';
+  try{await sbAuth('password',{email,password:senha});document.getElementById('lg-senha').value='';closeM('m-login');syncAll();}
+  catch(e){er.textContent='Não foi possível entrar: '+e.message;}
+}
+function sair(expirou){sbSess=null;sv('byl_sess',null);mostrarUsuario();if(expirou)document.getElementById('lg-erro').textContent='Sessão expirada. Entre de novo.';pedirLogin();}
+// Leitura devolve null em erro (antes devolvia [] e a sincronização tratava falha como banco vazio).
+async function sbGet(t,q){try{const r=await fetch(SB_URL+'/rest/v1/'+t+(q?'?'+q:''),{headers:await sbH()});if(!r.ok){console.error('GET',r.status);semAcesso(r.status);return null;}return await r.json();}catch(e){console.error('GET err',e);return null;}}
+async function sbUpsert(t,d){try{const r=await fetch(SB_URL+'/rest/v1/'+t,{method:'POST',headers:await sbH({'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}),body:JSON.stringify(Array.isArray(d)?d:[d])});if(!r.ok){console.error('UPSERT',r.status,await r.text());semAcesso(r.status);}}catch(e){console.error('UPSERT err',e);}}
+async function sbDel(t,c,v){try{const r=await fetch(SB_URL+'/rest/v1/'+t+'?'+c+'=eq.'+encodeURIComponent(v),{method:'DELETE',headers:await sbH()});if(!r.ok)semAcesso(r.status);}catch(e){console.error('DEL err',e);}}
 function showL(m){let e=document.getElementById('__ld');if(!e){e=document.createElement('div');e.id='__ld';e.style.cssText='position:fixed;inset:0;background:rgba(13,10,30,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px';document.head.insertAdjacentHTML('beforeend','<style>@keyframes __s{to{transform:rotate(360deg)}}</style>');e.innerHTML='<div style="width:36px;height:36px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;border-radius:50%;animation:__s .8s linear infinite"></div><p id="__lm" style="color:#c9a84c;font-size:14px;font-family:sans-serif">'+m+'</p>';document.body.appendChild(e);}else document.getElementById('__lm').textContent=m;}
 function hideL(){const e=document.getElementById('__ld');if(e)e.remove();}
 async function syncAll(){
   console.log("syncAll v3 called");
   const btn=document.getElementById('btn-sync');
+  if(!sbSess){pedirLogin();return;}
   showL('Sincronizando...');
   try{
     const cp=await sbGet('produtos_custom');
+    if(cp===null){hideL();return;}
     (cp||[]).forEach(r=>{if(!customProds.find(p=>p.cod===r.cod)){const np={cod:r.cod,nome:r.nome,short:r.short,usd:parseFloat(r.usd)};customProds.push(np);const o=document.createElement('option');o.value=PRODS_BASE.length+customProds.length-1;o.textContent=np.short;selEl.appendChild(o);}});
     showL('Carregando estoque...');
     const er=await sbGet('estoque');
-    if(er&&er.length){er.forEach(r=>{est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};if(r.foto)prodFotos[r.cod]=r.foto;});}
+    if(er===null){hideL();return;}
+    if(er.length){er.forEach(r=>{est[r.cod]={qtd:parseInt(r.qtd)||0,custoTotal:parseFloat(r.custo_total)||0};if(r.foto)prodFotos[r.cod]=r.foto;});}
     else{await sbUpsert('estoque',PRODS_BASE.map(p=>{const d=EST_DEFAULT[p.cod]||{qtd:0,custoTotal:0};return{cod:p.cod,nome:p.nome,short:p.short,usd:p.usd,qtd:d.qtd,custo_total:d.custoTotal,foto:null};}));}
     showL('Carregando historico...');
     const or=await sbGet('orcamentos','order=created_at.desc');
-    if(or&&or.length){orcs=or.map(r=>{let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={};}let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null;}return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,entrada:r.entrada?+r.entrada:null,parcelas:pa};});}
+    if(or===null){hideL();return;}
+    // Orçamentos que só existem neste aparelho sobem para o banco em vez de sumir.
+    const idsSrv=new Set(or.map(r=>r.id));const soLocal=orcs.filter(o=>!idsSrv.has(o.id));
+    for(const o of soLocal)await saveOrc(o);
+    if(or.length){orcs=or.map(r=>{let pl=r.planos;if(typeof pl==='string')try{pl=JSON.parse(pl)}catch(e){pl={};}let pa=r.parcelas;if(typeof pa==='string'&&pa)try{pa=JSON.parse(pa)}catch(e){pa=null;}return{id:r.id,criado:r.criado,produto:r.produto,custo:+r.custo,venda:+r.venda,planos:pl,status:r.status,vendaData:r.venda_data,planoEsc:r.plano_esc,entrada:r.entrada?+r.entrada:null,parcelas:pa};});}
     else orcs=[];
+    if(soLocal.length){orcs=[...soLocal,...orcs];sv('byl_orc',orcs);}
     hideL();lastIdx=null;renderOrc();renderEst();renderHist();renderAnal();
     console.log('Sync OK orcs:'+orcs.length);
   }catch(e){console.error('syncAll:',e);hideL();}
 }
 async function saveEst(cod){const p=prods().find(x=>x.cod===cod);if(!p||!est[cod])return;await sbUpsert('estoque',[{cod,nome:p.nome,short:p.short,usd:p.usd,qtd:est[cod].qtd,custo_total:est[cod].custoTotal,foto:prodFotos[cod]||null}]);}
 async function saveOrc(o){await sbUpsert('orcamentos',[{id:o.id,criado:o.criado,produto:o.produto,custo:o.custo,venda:o.venda,planos:o.planos,status:o.status,venda_data:o.vendaData||null,plano_esc:o.planoEsc||null,entrada:o.entrada||null,parcelas:o.parcelas||null}]);}
-document.addEventListener('DOMContentLoaded',syncAll);
+document.addEventListener('DOMContentLoaded',()=>{mostrarUsuario();syncAll();});
 </script>
 <input type="file" id="prod-foto-input" accept="image/*" style="display:none" onchange="carregarFotoProd(this)">
 </body>
