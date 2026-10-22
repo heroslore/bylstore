@@ -526,6 +526,33 @@
   .login-box .btn { width: 100%; justify-content: center; margin-top: 12px; padding: 11px 14px; }
   .login-error { color: var(--danger); font-size: 0.84rem; margin-top: 10px; min-height: 1.2em; text-align: center; }
 
+  /* ---------- central de inteligência ---------- */
+  .cmd-box textarea { min-height: 72px; }
+  .chips-ex { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chips-ex .chip { font-size: 0.78rem; }
+  .log-box { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 0.82rem; max-height: 240px; overflow: auto; display: grid; gap: 4px; }
+  .log-box div { display: flex; gap: 8px; align-items: baseline; }
+  .log-box .t { color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .log-box .ag { color: var(--amber); font-weight: 600; white-space: nowrap; }
+  .md { font-size: 0.9rem; line-height: 1.55; }
+  .md h1, .md h2, .md h3 { font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); margin: 16px 0 6px; }
+  .md p { margin: 6px 0; } .md ul { margin: 4px 0 8px; padding-left: 20px; } .md li { margin: 2px 0; }
+  .md table { width: auto; min-width: 0; margin: 8px 0; font-size: 0.85rem; } .md th, .md td { padding: 4px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .md code { background: var(--paper-2); padding: 1px 4px; border-radius: 4px; font-size: 0.85em; }
+  .st { font-size: 0.7rem; padding: 2px 7px; border-radius: 99px; font-weight: 600; white-space: nowrap; background: var(--paper-2); color: var(--ink-soft); }
+  .st.EM_EXECUCAO, .st.AGUARDANDO_REVISAO { background: var(--amber-soft); color: var(--ink); }
+  .st.AGUARDANDO_APROVACAO { background: var(--amber); color: #fff; }
+  .st.CONCLUIDA { background: var(--teal-soft); color: var(--teal); }
+  .st.FALHOU { background: var(--danger-soft); color: var(--danger); }
+  .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .agent { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--paper); }
+  .agent .n { font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; gap: 6px; }
+  .agent .n::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex: none; }
+  .agent.off .n::before { background: var(--ink-faint); }
+  .agent .d { font-size: 0.76rem; color: var(--ink-soft); margin-top: 4px; line-height: 1.4; }
+  .approval { border: 1px solid var(--amber); background: var(--amber-soft); border-radius: 9px; padding: 12px 14px; margin-bottom: 10px; }
+  .approval pre { white-space: pre-wrap; font-size: 0.8rem; margin: 6px 0; font-family: inherit; }
+
   /* ---------- sync indicator ---------- */
   .sync {
     font-size: 0.74rem; color: var(--ink-soft);
@@ -627,6 +654,7 @@
         <button class="tab" type="button" data-tab="estoque">Estoque <span class="pill" id="pillEstoque">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
         <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
+        <button class="tab" type="button" data-tab="central">Central <span class="pill" id="pillCentral" hidden>0</span></button>
         <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
       </nav>
     </div>
@@ -1050,6 +1078,77 @@
         </div>
       </div>
       <div id="clientesList"></div>
+    </section>
+
+    <!-- ================= CENTRAL DE INTELIGÊNCIA ================= -->
+    <section id="tab-central" class="tabpanel">
+      <p class="page-intro">Central de Inteligência — HEROS CELL. Peça em português; o coordenador escolhe os agentes, o auditor confere e você aprova o que altera dados.</p>
+      <div class="stats" id="centralStats"></div>
+      <div style="height:16px"></div>
+
+      <div class="card cmd-box">
+        <h2>Comando</h2>
+        <div class="field">
+          <textarea id="cmdTexto" placeholder="ex: Analise meu estoque e identifique os cinco aparelhos com menor rentabilidade."></textarea>
+        </div>
+        <div class="chips-ex">
+          <button class="chip" type="button" data-ex="Quais aparelhos estão parados há mais de 30 dias e quanto capital está preso neles?">Aparelhos parados</button>
+          <button class="chip" type="button" data-ex="Resuma vendas, lucro bruto e margem dos últimos 30 dias por modelo e por cliente.">Vendas do mês</button>
+          <button class="chip" type="button" data-ex="Com base no giro dos últimos 90 dias e no estoque atual, o que devo repor e o que devo liquidar?">Repor ou liquidar</button>
+          <button class="chip" type="button" data-ex="Verifique inconsistências nos dados e me dê um relatório.">Auditoria dos dados</button>
+          <button class="chip" type="button" data-ex="Como está o crediário do BYL: parcelas vencidas, inadimplência e lucro realizado?">Crediário BYL</button>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="button" id="btnCmd">Executar</button>
+          <span class="status-line" id="cmdStatus" style="margin:0"></span>
+        </div>
+        <div style="height:10px"></div>
+        <div class="log-box" id="cmdLog" hidden></div>
+        <div style="height:10px"></div>
+        <div class="md" id="cmdResultado"></div>
+      </div>
+
+      <div class="card" id="aprovacoesCard">
+        <div class="card-head"><h2>Pedidos de aprovação</h2><span class="badge" id="aprovacoesCount">0</span></div>
+        <div id="aprovacoesList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Tarefas</h2>
+          <div class="actions" style="margin:0">
+            <select id="tarefasFiltro" style="border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:6px 8px;font-size:0.85rem">
+              <option value="">Todas</option><option value="EM_EXECUCAO">Em execução</option><option value="AGUARDANDO_APROVACAO">Aguardando aprovação</option><option value="CONCLUIDA">Concluídas</option><option value="FALHOU">Falhas</option>
+            </select>
+            <button class="btn small" type="button" id="btnTarefasAtualizar">Atualizar</button>
+          </div>
+        </div>
+        <div id="tarefasList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Agentes</h2><span class="badge neutral" id="agentesCount"></span></div>
+        <div class="agent-grid" id="agentesGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Rotinas automáticas</h2>
+        <div id="rotinasList"></div>
+        <p class="hint">Rodam na Netlify às 08:00 (horário de Brasília): diária todo dia, semanal na segunda, mensal no dia 1. Só análises, alertas e relatórios (nível 1). O resultado fica em Memória e em Tarefas.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Memória dos agentes</h2>
+          <div class="actions" style="margin:0">
+            <input type="search" id="memBusca" placeholder="buscar na memória…" style="border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:7px 10px;font-size:0.88rem;min-width:180px">
+            <select id="memTipo" style="border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:6px 8px;font-size:0.85rem">
+              <option value="">Todos os tipos</option><option value="relatorio">Relatórios</option><option value="alerta">Alertas</option><option value="recomendacao">Recomendações</option><option value="analise">Análises</option><option value="decisao">Decisões</option><option value="alteracao">Alterações</option><option value="erro">Erros</option><option value="regra_comercial">Regras comerciais</option>
+            </select>
+          </div>
+        </div>
+        <div id="memList"></div>
+      </div>
     </section>
 
     <!-- ================= AJUSTES ================= -->
@@ -2763,6 +2862,128 @@
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") runSync(syncPull); });
   window.addEventListener("online", () => runSync(async () => { await syncPull(); await syncPush(); }));
   setInterval(() => { if (document.visibilityState === "visible") runSync(syncPull); }, 45000);
+
+  /* ================= CENTRAL DE INTELIGÊNCIA ================= */
+  const AG_NOMES = {};
+  async function apiAgentes(rota, opts = {}) {
+    const res = await fetch("/api/agentes/" + rota, { ...opts, headers: { "content-type": "application/json", "x-sync-key": sync.key, ...(opts.headers || {}) } });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data && data.error ? data.error : "erro " + res.status);
+    return data;
+  }
+  function mdParaHtml(md) {
+    const linhas = String(md || "").split(/\r?\n/); let html = "", lista = false, tabela = [];
+    const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
+    const flushTabela = () => { if (!tabela.length) return; const rows = tabela.filter((r) => !/^\s*\|?\s*:?-{2,}/.test(r)); html += "<div class=\"table-scroll\"><table>" + rows.map((r, i) => { const cells = r.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => inline(c.trim())); return "<tr>" + cells.map((c) => (i === 0 ? "<th>" + c + "</th>" : "<td>" + c + "</td>")).join("") + "</tr>"; }).join("") + "</table></div>"; tabela = []; };
+    linhas.forEach((l) => {
+      if (/^\s*\|/.test(l)) { tabela.push(l); return; } else flushTabela();
+      const h = l.match(/^(#{1,3})\s+(.*)/); const li = l.match(/^\s*[-*•]\s+(.*)/);
+      if (li) { if (!lista) { html += "<ul>"; lista = true; } html += "<li>" + inline(li[1]) + "</li>"; return; }
+      if (lista) { html += "</ul>"; lista = false; }
+      if (h) { html += "<h3>" + inline(h[2]) + "</h3>"; return; }
+      if (l.trim()) html += "<p>" + inline(l) + "</p>";
+    });
+    flushTabela(); if (lista) html += "</ul>";
+    return html;
+  }
+  function stBadge(s) { return `<span class="st ${esc(s)}">${esc(String(s || "").replace(/_/g, " ").toLowerCase())}</span>`; }
+  const hora = (iso) => iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+
+  async function lerSSE(res, onEv) {
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf("\n\n")) >= 0) { const chunk = buf.slice(0, i); buf = buf.slice(i + 2); chunk.split("\n").forEach((l) => { if (l.startsWith("data: ")) { try { onEv(JSON.parse(l.slice(6))); } catch (e) { /* ignore */ } } }); }
+    }
+  }
+  function logEv(ev) {
+    const box = $("cmdLog"); box.hidden = false;
+    if (ev.tipo === "ping") return;
+    const t = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    let msg = ev.msg || "";
+    if (ev.tipo === "plano") msg = "Plano: " + (ev.plano.interpretacao || "") + " → " + (ev.plano.agentes || []).map((a) => AG_NOMES[a.id] || a.id).join(", ") + (ev.plano.observacao ? " · " + ev.plano.observacao : "");
+    if (ev.tipo === "ferramenta") msg = "chamou " + ev.ferramenta + (ev.input && Object.keys(ev.input).length ? " " + JSON.stringify(ev.input).slice(0, 80) : "");
+    if (ev.tipo === "aprovacao") msg = "Pedido de aprovação criado: " + (ev.proposta.tipo === "compra" ? "registrar compra " + ev.proposta.nome : "preço " + ev.proposta.modelo + " → R$ " + ev.proposta.preco);
+    if (ev.tipo === "erro") msg = "ERRO: " + ev.msg;
+    if (ev.tipo === "duplicada") msg = "Já existe uma tarefa igual em andamento (" + ev.tarefa + ").";
+    if (ev.tipo === "aviso") msg = "Aviso: " + ev.msg;
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="t">${t}</span>${ev.agente ? `<span class="ag">${esc(AG_NOMES[ev.agente] || ev.agente)}</span>` : ""}<span>${esc(msg)}</span>`;
+    box.appendChild(d); box.scrollTop = box.scrollHeight;
+  }
+  let cmdRodando = false;
+  async function executarComandoUI(texto) {
+    if (cmdRodando) return;
+    if (!syncAvailable || !sync.key) { toast("A Central só funciona no site publicado, depois de entrar."); return; }
+    cmdRodando = true; $("btnCmd").disabled = true; $("cmdStatus").textContent = "Executando…"; $("cmdLog").innerHTML = ""; $("cmdLog").hidden = false; $("cmdResultado").innerHTML = "";
+    try {
+      const res = await fetch("/api/agentes/comando", { method: "POST", headers: { "content-type": "application/json", "x-sync-key": sync.key }, body: JSON.stringify({ comando: texto }) });
+      if (!res.ok) { const d = await res.json().catch(() => null); throw new Error(d && d.error ? d.error : "erro " + res.status); }
+      let fim = null;
+      await lerSSE(res, (ev) => { logEv(ev); if (ev.tipo === "fim") fim = ev.tarefa; });
+      if (fim && fim.result && fim.result.texto) {
+        $("cmdResultado").innerHTML = mdParaHtml(fim.result.texto) + `<p class="muted" style="font-size:0.78rem">${esc(fim.task_id)} · ${stBadge(fim.status)} · ${fim.result.tokens ? (fim.result.tokens.entrada + fim.result.tokens.saida) + " tokens" : ""}</p>`;
+        $("cmdStatus").textContent = fim.status === "AGUARDANDO_APROVACAO" ? "Concluído com pedido(s) de aprovação abaixo." : "Concluído.";
+      } else if (fim && fim.error) { $("cmdStatus").textContent = "Falhou: " + fim.error.mensagem; }
+      else $("cmdStatus").textContent = "Terminou sem resultado.";
+    } catch (e) { $("cmdStatus").textContent = "Não deu: " + (e.message || e); }
+    finally { cmdRodando = false; $("btnCmd").disabled = false; renderCentral(); }
+  }
+  $("btnCmd").addEventListener("click", () => { const t = $("cmdTexto").value.trim(); if (!t) { toast("Escreva o que você quer."); return; } executarComandoUI(t); });
+  document.querySelectorAll("#tab-central [data-ex]").forEach((b) => b.addEventListener("click", () => { $("cmdTexto").value = b.dataset.ex; $("cmdTexto").focus(); }));
+
+  async function renderCentral() {
+    if (!syncAvailable || !sync.key) { $("centralStats").innerHTML = `<div class="empty">Entre no app publicado para usar a Central.</div>`; return; }
+    try {
+      const [status, tarefas, mem] = await Promise.all([apiAgentes("status"), apiAgentes("tarefas?limite=40" + ($("tarefasFiltro").value ? "&status=" + $("tarefasFiltro").value : "")), apiAgentes("memoria?" + new URLSearchParams({ q: $("memBusca").value.trim(), tipo: $("memTipo").value }).toString())]);
+      status.agentes.forEach((a) => { AG_NOMES[a.id] = a.nome; });
+      const disp = status.agentes.filter((a) => a.disponivel).length;
+      const emExec = tarefas.filter((t) => t.status === "EM_EXECUCAO" || t.status === "AGUARDANDO_REVISAO").length;
+      $("pillCentral").textContent = status.aguardandoAprovacao; $("pillCentral").hidden = !status.aguardandoAprovacao;
+      $("centralStats").innerHTML = `
+        <div class="tile"><div class="label">Agentes</div><div class="value">${disp}/${status.agentes.length}</div><div class="sub">${status.ia ? "IA configurada" : "sem chave da IA"}${status.byl ? " · BYL conectado" : " · BYL não conectado"}</div></div>
+        <div class="tile"><div class="label">Em execução</div><div class="value">${emExec}</div><div class="sub">tarefas ativas</div></div>
+        <div class="tile ${status.aguardandoAprovacao ? "amber" : ""}"><div class="label">Aguardando você</div><div class="value">${status.aguardandoAprovacao}</div><div class="sub">pedidos de aprovação</div></div>
+        <div class="tile"><div class="label">Alertas</div><div class="value">${status.alertas.length}</div><div class="sub">${status.recomendacoes.length} recomendação(ões)</div></div>`;
+      // aprovações
+      const aprov = tarefas.filter((t) => t.status === "AGUARDANDO_APROVACAO" && t.requires_approval);
+      $("aprovacoesCount").textContent = aprov.length;
+      $("aprovacoesList").innerHTML = aprov.length ? aprov.map((t) => `<div class="approval">
+          <div><b>${esc(t.titulo)}</b> <span class="muted">· ${esc(AG_NOMES[t.agente] || t.agente)} · ${hora(t.criadaEm)}</span></div>
+          <pre>${esc(t.proposta ? (t.proposta.justificativa || "") : "")}</pre>
+          ${t.proposta && t.proposta.itens ? `<div class="table-scroll"><table>${t.proposta.itens.map((i) => `<tr><td>${esc(i.modelo)}</td><td class="num">${i.qty} un.</td><td class="num">US$ ${i.lance}</td></tr>`).join("")}</table></div>` : ""}
+          <div class="actions" style="margin-top:8px"><button class="btn small primary" type="button" data-aprovar="${t.task_id}">Aprovar e executar</button><button class="btn small ghost danger" type="button" data-rejeitar="${t.task_id}">Rejeitar</button></div>
+        </div>`).join("") : `<div class="muted" style="font-size:0.85rem">Nenhum pedido pendente. Alterações de preço e registro de compra propostos pelos agentes aparecem aqui.</div>`;
+      $("aprovacoesList").querySelectorAll("[data-aprovar]").forEach((b) => b.addEventListener("click", async () => { if (!confirm("Aprovar e executar esta proposta?")) return; b.disabled = true; try { const r = await apiAgentes("aprovar", { method: "POST", body: JSON.stringify({ task_id: b.dataset.aprovar, decisao: "aprovar" }) }); toast(r.result && r.result.descricao ? r.result.descricao : "Executado."); await runSync(syncPull); } catch (e) { toast(e.message); } renderCentral(); }));
+      $("aprovacoesList").querySelectorAll("[data-rejeitar]").forEach((b) => b.addEventListener("click", async () => { const motivo = prompt("Motivo (opcional):") || ""; try { await apiAgentes("aprovar", { method: "POST", body: JSON.stringify({ task_id: b.dataset.rejeitar, decisao: "rejeitar", motivo }) }); toast("Proposta rejeitada."); } catch (e) { toast(e.message); } renderCentral(); }));
+      // tarefas
+      $("tarefasList").innerHTML = tarefas.length ? tarefas.map((t) => `<div class="item" data-tid="${t.task_id}">
+          <div class="item-head" data-ttoggle="${t.task_id}"><span class="chev">▶</span><div class="item-main"><div class="item-title">${esc(t.titulo || t.action)} ${stBadge(t.status)}</div><div class="item-sub">${esc(t.task_id)} · ${esc(AG_NOMES[t.agente] || t.agente)} · ${esc(t.origem)} · ${hora(t.criadaEm)}${t.pai ? " · sub de " + esc(t.pai) : ""}${t.error ? " · <span class='neg'>" + esc(t.error.mensagem || t.error.codigo) + "</span>" : ""}</div></div></div>
+          <div class="item-body"><div class="muted" style="font-size:0.82rem">carregando…</div></div>
+        </div>`).join("") : `<div class="muted" style="font-size:0.85rem">Nenhuma tarefa ainda.</div>`;
+      $("tarefasList").querySelectorAll("[data-ttoggle]").forEach((h) => h.addEventListener("click", async () => {
+        const item = h.parentElement; item.classList.toggle("open");
+        if (item.classList.contains("open") && !item.dataset.loaded) { item.dataset.loaded = "1"; try { const t = await apiAgentes("tarefa?id=" + encodeURIComponent(h.dataset.ttoggle)); item.querySelector(".item-body").innerHTML = (t.result && t.result.texto ? `<div class="md">${mdParaHtml(t.result.texto)}</div>` : t.result && t.result.descricao ? `<p>${esc(t.result.descricao)}</p>` : "") + (t.evidence && t.evidence.length ? `<h2 style="margin-top:12px">Evidências (${t.evidence.length})</h2><div class="log-box">${t.evidence.map((e) => `<div><span class="t">${hora(e.em)}</span><span class="ag">${esc(e.ferramenta)}</span><span>${e.ok ? "" : "ERRO: "}${esc(String(e.resumo || "").slice(0, 160))}</span></div>`).join("")}</div>` : "") + `<h2 style="margin-top:12px">Log</h2><div class="log-box">${(t.log || []).map((l) => `<div><span class="t">${hora(l.t)}</span><span>${esc(l.msg)}</span></div>`).join("")}</div>`; } catch (e) { item.querySelector(".item-body").textContent = e.message; } }
+      }));
+      // agentes
+      $("agentesCount").textContent = disp + " disponíveis";
+      $("agentesGrid").innerHTML = status.agentes.map((a) => `<div class="agent ${a.disponivel ? "" : "off"}"><div class="n">${esc(a.nome)}</div><div class="d">${a.disponivel ? esc(a.ferramentas.length + " ferramentas") : esc(a.motivo || "indisponível")}</div></div>`).join("");
+      // rotinas
+      const cfg = status.rotinas.config;
+      $("rotinasList").innerHTML = status.rotinas.disponiveis.map((r) => `<div class="toggle-row" style="margin:6px 0;justify-content:space-between"><label><input type="checkbox" data-rot="${r.id}" ${cfg[r.id] !== false ? "checked" : ""}> ${esc(r.nome)}</label><button class="btn small" type="button" data-rodar="${r.id}">Executar agora</button></div>`).join("");
+      $("rotinasList").querySelectorAll("[data-rot]").forEach((c) => c.addEventListener("change", async () => { const novo = { ...cfg }; $("rotinasList").querySelectorAll("[data-rot]").forEach((x) => { novo[x.dataset.rot] = x.checked; }); try { await apiAgentes("rotinas", { method: "POST", body: JSON.stringify({ config: novo }) }); toast("Rotinas atualizadas."); } catch (e) { toast(e.message); } }));
+      $("rotinasList").querySelectorAll("[data-rodar]").forEach((b) => b.addEventListener("click", async () => { if (cmdRodando) return; cmdRodando = true; b.disabled = true; $("cmdLog").innerHTML = ""; $("cmdLog").hidden = false; $("cmdResultado").innerHTML = ""; $("cmdStatus").textContent = "Executando rotina…"; try { const res = await fetch("/api/agentes/rotinas", { method: "POST", headers: { "content-type": "application/json", "x-sync-key": sync.key }, body: JSON.stringify({ executar: b.dataset.rodar }) }); let fim = null; await lerSSE(res, (ev) => { logEv(ev); if (ev.tipo === "fim") fim = ev.tarefa; }); if (fim && fim.result && fim.result.texto) $("cmdResultado").innerHTML = mdParaHtml(fim.result.texto); $("cmdStatus").textContent = "Rotina concluída."; } catch (e) { $("cmdStatus").textContent = "Não deu: " + e.message; } finally { cmdRodando = false; b.disabled = false; renderCentral(); } }));
+      // memória
+      $("memList").innerHTML = mem.length ? mem.map((d) => `<div class="item"><div class="item-head" data-mtoggle="1"><span class="chev">▶</span><div class="item-main"><div class="item-title">${esc(d.titulo)} <span class="badge neutral">${esc(d.tipo)}</span></div><div class="item-sub">${esc(AG_NOMES[d.agente] || d.agente)} · ${fmtDate(d.data)}${d.tarefa ? " · " + esc(d.tarefa) : ""}</div></div></div><div class="item-body"><div class="md">${mdParaHtml(d.conteudo)}</div></div></div>`).join("") : `<div class="muted" style="font-size:0.85rem">Nada na memória ainda.</div>`;
+      $("memList").querySelectorAll("[data-mtoggle]").forEach((h) => h.addEventListener("click", () => h.parentElement.classList.toggle("open")));
+    } catch (e) { $("centralStats").innerHTML = `<div class="empty"><b>Central indisponível:</b> ${esc(e.message || e)}</div>`; }
+  }
+  $("btnTarefasAtualizar").addEventListener("click", renderCentral);
+  $("tarefasFiltro").addEventListener("change", renderCentral);
+  let memTimer; $("memBusca").addEventListener("input", () => { clearTimeout(memTimer); memTimer = setTimeout(renderCentral, 400); });
+  $("memTipo").addEventListener("change", renderCentral);
+  document.querySelector('[data-tab="central"]').addEventListener("click", renderCentral);
 
   /* ================= INSTALL (PWA) ================= */
   let installPrompt = null;
