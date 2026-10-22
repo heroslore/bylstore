@@ -234,7 +234,7 @@ export function normalizarEstado(d) {
   d = d || {};
   return { settings: { ...DEFAULT_SETTINGS, ...(d.settings || {}) }, draft: d.draft || null, vendaDraft: d.vendaDraft || null, filtro: d.filtro || null, calc: d.calc || null,
     precos: Array.isArray(d.precos) ? d.precos : [], compras: Array.isArray(d.compras) ? d.compras : [], vendas: Array.isArray(d.vendas) ? d.vendas : [], clientes: Array.isArray(d.clientes) ? d.clientes : [],
-    perdas: Array.isArray(d.perdas) ? d.perdas : [], gastos: Array.isArray(d.gastos) ? d.gastos : [],
+    perdas: Array.isArray(d.perdas) ? d.perdas : [], gastos: Array.isArray(d.gastos) ? d.gastos : [], orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos : [],
     ultimoBackup: d.ultimoBackup || null, updatedAt: numOr(d.updatedAt, 0) };
 }
 export async function carregarEstado(st = store()) {

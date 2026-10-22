@@ -1097,9 +1097,17 @@
         <p class="hint">O preço de venda vem da <b>Lista de preços de venda</b> (aba Calculadora) quando o modelo bate, e pode ser alterado à vontade.</p>
         <div class="actions">
           <button class="btn primary" id="btnRegistrarVenda" type="button">Registrar venda</button>
+          <button class="btn amber" id="btnGerarOrcamento" type="button">Gerar orçamento</button>
+          <span class="badge" id="vendaDeOrcamento" hidden></span>
           <span class="spacer"></span>
           <button class="btn ghost danger" id="btnLimparVenda" type="button">Limpar</button>
         </div>
+        <p class="hint"><b>Gerar orçamento</b> salva a proposta sem baixar o estoque, para enviar ao cliente por WhatsApp ou PDF. Quando ele aceitar, use <b>Fechar venda</b> no orçamento.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Orçamentos</h2><span class="badge neutral" id="orcamentosCount">0</span></div>
+        <div id="orcamentosList"></div>
       </div>
 
       <div class="card">
@@ -1374,7 +1382,7 @@
 
   const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
   const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()] });
-  const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [] });
+  const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [], orcamentoId: null });
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
   const newCalcRow = () => ({ id: uid(), precoId: null, modelo: "", venda: null, lance: null });
@@ -1407,6 +1415,7 @@
     clientes: [],
     perdas: [],
     gastos: [],
+    orcamentos: [],
   };
   let clienteEditId = null;
   const openItems = new Set();
@@ -1432,6 +1441,7 @@
             clientes: Array.isArray(p.clientes) ? p.clientes : [],
             perdas: Array.isArray(p.perdas) ? p.perdas : [],
             gastos: Array.isArray(p.gastos) ? p.gastos : [],
+            orcamentos: Array.isArray(p.orcamentos) ? p.orcamentos : [],
           };
           return;
         }
@@ -2433,12 +2443,19 @@
       save(); renderVendaRows();
     }));
     tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onVendaInput));
-    tbody.querySelectorAll('input[data-field="qty"]').forEach((inp) => inp.addEventListener("change", () => renderVendaRows()));
     tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
       state.vendaDraft.itens.splice(Number(b.dataset.remove), 1);
       save(); renderVendaRows();
     }));
     renderVendaDraftTotals();
+  }
+  function atualizarImeis(idx, it) {
+    const tr = $("vendaRows").children[idx]; if (!tr) return;
+    const stack = tr.querySelector(".cell-stack"); if (!stack) return;
+    stack.querySelectorAll('input[data-field="imei"]').forEach((i) => i.remove());
+    const obs = stack.querySelector('input[data-field="obs"]');
+    const tmp = document.createElement("div"); tmp.innerHTML = imeiInputs(it, idx, numOr(it.qty, 1));
+    [...tmp.children].forEach((inp) => { inp.addEventListener("input", onVendaInput); stack.insertBefore(inp, obs); });
   }
   function imeiInputs(it, idx, q) {
     const n = Math.min(50, Math.max(1, Math.round(q || 1)));
@@ -2451,7 +2468,7 @@
     const it = state.vendaDraft.itens[idx];
     if (!it) return;
     const f = e.target.dataset.field, v = e.target.value;
-    if (f === "qty") it.qty = v === "" ? 1 : Number(v);
+    if (f === "qty") { it.qty = v === "" ? 1 : Number(v); atualizarImeis(idx, it); }
     else if (f === "preco") it.preco = v === "" ? null : Number(v);
     else if (f === "imei") { it.imeis = it.imeis || []; it.imeis[Number(e.target.dataset.k)] = v.trim(); save(); return; }
     else it.obs = v;
@@ -2494,6 +2511,83 @@
     state.vendaDraft = newVendaDraft();
     save(); renderVendaDraftHead(); renderVendaRows();
   });
+
+  /* ---- orçamentos ---- */
+  const ORC_VALIDADE_DIAS = 3;
+  function orcTotais(o) { let qty = 0, venda = 0; (o.itens || []).forEach((i) => { qty += numOr(i.qty, 0); venda += numOr(i.preco, 0) * numOr(i.qty, 0); }); return { qty, venda }; }
+  function orcStatusLabel(o) { return o.status === "fechado" ? "venda fechada" : o.status === "cancelado" ? "cancelado" : (o.validade && o.validade < todayISO()) ? "vencido" : "aberto"; }
+  $("btnGerarOrcamento").addEventListener("click", () => {
+    const d = state.vendaDraft; const nome = (d.cliente || "").trim();
+    if (!nome) { toast("Informe o cliente."); $("vendaCliente").focus(); return; }
+    const stock = stockList();
+    const itens = d.itens.filter((i) => i.compraId && i.rowId).map((i) => { const s = stock.find((x) => x.key === i.compraId + "|" + i.rowId); return s ? { compraId: i.compraId, rowId: i.rowId, modelo: s.modelo, qty: Math.max(1, Math.round(numOr(i.qty, 1))), preco: numOr(i.preco, 0), obs: (i.obs || "").trim() } : null; }).filter(Boolean);
+    if (!itens.length) { toast("Adicione pelo menos um aparelho."); return; }
+    if (itens.some((i) => !(i.preco > 0))) { toast("Informe o preço de venda de todos os aparelhos."); return; }
+    state.orcamentos = state.orcamentos || [];
+    const numero = (state.orcamentos.reduce((a, o) => Math.max(a, numOr(o.numero, 0)), 0) || 0) + 1;
+    const o = { id: uid(), numero, data: d.data || todayISO(), validade: somarDias(d.data || todayISO(), ORC_VALIDADE_DIAS), clienteNome: nome, itens, status: "aberto", vendaId: null, criadoEm: Date.now() };
+    state.orcamentos.unshift(o);
+    state.vendaDraft = newVendaDraft();
+    save(); renderAll(); toast(`Orçamento nº ${numero} gerado. Envie ao cliente pelo WhatsApp ou PDF.`);
+  });
+  function orcTextoWhats(o) {
+    const t = orcTotais(o);
+    const linhas = o.itens.map((i) => `• ${i.qty}× ${i.modelo}${i.obs ? " (" + i.obs + ")" : ""} — ${fmtBRL(i.preco)}${i.qty > 1 ? " cada = " + fmtBRL(i.preco * i.qty) : ""}`);
+    return [`*${docEmpresa()}* — Orçamento nº ${o.numero}`, `Cliente: ${o.clienteNome}`, `Data: ${fmtDate(o.data)} · válido até ${fmtDate(o.validade)}`, "", ...linhas, "", `*Total: ${fmtBRL(t.venda)}*`, "", "Aparelhos seminovos com 30 dias de garantia para defeitos de fabricação.", state.settings.contato ? "Contato: " + state.settings.contato : ""].filter((l) => l !== null).join("\n");
+  }
+  function printOrcamento(o) {
+    const t = orcTotais(o);
+    const html = `<div class="doc">
+      ${docHeader("Orçamento nº " + o.numero, ["Data: " + fmtDate(o.data), "Válido até: " + fmtDate(o.validade), "Cliente: " + o.clienteNome])}
+      <table>
+        <thead><tr><th>Aparelho</th><th>Observação</th><th class="num">Qtd</th><th class="num">Valor unitário</th><th class="num">Total</th></tr></thead>
+        <tbody>${o.itens.map((i) => `<tr><td>${esc(i.modelo)}</td><td>${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco * i.qty)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td colspan="2">Total</td><td class="num">${t.qty}</td><td></td><td class="num">${fmtBRL(t.venda)}</td></tr></tfoot>
+      </table>
+      <div class="total-box"><div>Total: ${fmtBRL(t.venda)}</div></div>
+      <div class="section garantia"><h3>Condições</h3><p>Orçamento válido até ${fmtDate(o.validade)}, sujeito à disponibilidade dos aparelhos. Aparelhos seminovos conferidos no ato da entrega. ${esc(docGarantia())}</p></div>
+      <div class="foot">${esc(docEmpresa())} · ${esc(docResponsavel())}${state.settings.contato ? " · " + esc(state.settings.contato) : ""} · gerado em ${new Date().toLocaleString("pt-BR")}</div>
+    </div>`;
+    printHTML(html, "Orcamento " + o.numero + " - " + o.clienteNome);
+  }
+  function renderOrcamentos() {
+    const lista = state.orcamentos || [];
+    $("orcamentosCount").textContent = lista.length + " · " + lista.filter((o) => orcStatusLabel(o) === "aberto").length + " aberto(s)";
+    const ativo = state.vendaDraft.orcamentoId ? lista.find((o) => o.id === state.vendaDraft.orcamentoId) : null;
+    $("vendaDeOrcamento").hidden = !ativo; if (ativo) $("vendaDeOrcamento").textContent = "fechando orçamento nº " + ativo.numero;
+    if (!lista.length) { $("orcamentosList").innerHTML = `<div class="muted" style="font-size:0.85rem">Nenhum orçamento. Monte os aparelhos acima e toque em Gerar orçamento.</div>`; return; }
+    $("orcamentosList").innerHTML = lista.map((o) => { const t = orcTotais(o); const st = orcStatusLabel(o); const cls = st === "aberto" ? "AGUARDANDO_APROVACAO" : st === "venda fechada" ? "CONCLUIDA" : "FALHOU";
+      return `<div class="item ${openItems.has(o.id) ? "open" : ""}">
+        <div class="item-head" data-toggle="${o.id}"><span class="chev">▶</span><div class="item-main"><div class="item-title">Nº ${o.numero} · ${esc(o.clienteNome)} <span class="st ${cls}">${st}</span></div><div class="item-sub">${fmtDate(o.data)} · válido até ${fmtDate(o.validade)} · ${t.qty} aparelho(s) · ${o.itens.map((i) => esc(i.modelo)).join(", ")}</div></div>
+          <div class="item-figs"><div class="fig"><div class="l">Total</div><div class="v amber">${fmtBRL(t.venda)}</div></div></div></div>
+        <div class="item-body">
+          <div class="table-scroll"><table><thead><tr><th>Aparelho</th><th>Obs.</th><th class="num">Qtd</th><th class="num">Unitário</th><th class="num">Total</th></tr></thead><tbody>${o.itens.map((i) => `<tr><td>${esc(i.modelo)}</td><td class="muted">${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco * i.qty)}</td></tr>`).join("")}</tbody></table></div>
+          <div class="actions">
+            <a class="btn small" href="${esc(waLink(o))}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+            <button class="btn small" type="button" data-orcpdf="${o.id}">PDF</button>
+            <button class="btn small" type="button" data-orccopiar="${o.id}">Copiar texto</button>
+            ${st === "aberto" || st === "vencido" ? `<button class="btn small primary" type="button" data-orcfechar="${o.id}">Fechar venda</button>` : ""}
+            <span class="spacer"></span>
+            ${st !== "venda fechada" ? `<button class="btn small ghost danger" type="button" data-orcdel="${o.id}">Excluir</button>` : ""}
+          </div>
+        </div></div>`; }).join("");
+    $("orcamentosList").querySelectorAll("[data-toggle]").forEach((h) => h.addEventListener("click", () => { const id = h.dataset.toggle; if (openItems.has(id)) openItems.delete(id); else openItems.add(id); h.parentElement.classList.toggle("open"); }));
+    $("orcamentosList").querySelectorAll("[data-orcpdf]").forEach((b) => b.addEventListener("click", () => { const o = lista.find((x) => x.id === b.dataset.orcpdf); if (o) printOrcamento(o); }));
+    $("orcamentosList").querySelectorAll("[data-orccopiar]").forEach((b) => b.addEventListener("click", async () => { const o = lista.find((x) => x.id === b.dataset.orccopiar); if (!o) return; try { await navigator.clipboard.writeText(orcTextoWhats(o)); toast("Texto copiado."); } catch (e) { prompt("Copie o texto:", orcTextoWhats(o)); } }));
+    $("orcamentosList").querySelectorAll("[data-orcfechar]").forEach((b) => b.addEventListener("click", () => {
+      const o = lista.find((x) => x.id === b.dataset.orcfechar); if (!o) return;
+      if (state.vendaDraft.itens.length && !confirm("Substituir a venda em andamento pelos itens deste orçamento?")) return;
+      state.vendaDraft = { data: todayISO(), cliente: o.clienteNome, orcamentoId: o.id, itens: o.itens.map((i) => ({ compraId: i.compraId, rowId: i.rowId, qty: i.qty, preco: i.preco, obs: i.obs || "", imeis: [] })) };
+      save(); renderVendaDraftHead(); renderVendaRows(); renderOrcamentos(); window.scrollTo({ top: 0 }); toast("Itens do orçamento carregados. Confira o estoque, informe os IMEI e registre a venda.");
+    }));
+    $("orcamentosList").querySelectorAll("[data-orcdel]").forEach((b) => b.addEventListener("click", () => { if (!confirm("Excluir este orçamento?")) return; state.orcamentos = lista.filter((x) => x.id !== b.dataset.orcdel); if (state.vendaDraft.orcamentoId === b.dataset.orcdel) state.vendaDraft.orcamentoId = null; save(); renderAll(); }));
+  }
+  function waLink(o) {
+    const cl = state.clientes.find((c) => c.nome.trim().toLowerCase() === o.clienteNome.trim().toLowerCase());
+    const tel = cl && cl.telefone ? cl.telefone.replace(/\D/g, "") : "";
+    const num = tel ? (tel.startsWith("55") ? tel : "55" + tel) : "";
+    return "https://wa.me/" + num + "?text=" + encodeURIComponent(orcTextoWhats(o));
+  }
   $("btnRegistrarVenda").addEventListener("click", () => {
     const d = state.vendaDraft;
     const nome = (d.cliente || "").trim();
@@ -2524,9 +2618,11 @@
           qty: q, preco: numOr(i.preco, 0), obs: (i.obs || "").trim(), imeis: Array.from({ length: q }, (_, k) => String((i.imeis || [])[k] || "").trim()) };
       }),
     });
+    const orcId = d.orcamentoId;
     state.vendaDraft = newVendaDraft();
+    if (orcId) { const o = (state.orcamentos || []).find((x) => x.id === orcId); if (o) { o.status = "fechado"; o.vendaId = state.vendas[0].id; } }
     save(); renderAll();
-    toast("Venda registrada.");
+    toast(orcId ? "Venda registrada e orçamento fechado." : "Venda registrada.");
   });
 
   /* ---------------- period filter ---------------- */
@@ -2950,6 +3046,7 @@
           clientes: Array.isArray(d.clientes) ? d.clientes : [],
           perdas: Array.isArray(d.perdas) ? d.perdas : [],
           gastos: Array.isArray(d.gastos) ? d.gastos : [],
+          orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos : [],
         };
         save(); renderAll(); toast("Backup restaurado.");
       } catch (e) { toast("Não consegui ler o arquivo."); }
@@ -2979,7 +3076,7 @@
     if (!confirm("Apagar TODAS as compras, vendas e clientes deste navegador?")) return;
     if (!confirm("Tem certeza? Isso não pode ser desfeito sem um backup.")) return;
     const settings = state.settings, precos = state.precos;
-    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), calc: newCalc(), precos, ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [], perdas: [], gastos: [] };
+    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), calc: newCalc(), precos, ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [], perdas: [], gastos: [], orcamentos: [] };
     save(); renderAll(); toast("Dados apagados.");
   });
 
@@ -3019,6 +3116,7 @@
       clientes: Array.isArray(d.clientes) ? d.clientes : [],
       perdas: Array.isArray(d.perdas) ? d.perdas : [],
       gastos: Array.isArray(d.gastos) ? d.gastos : [],
+      orcamentos: Array.isArray(d.orcamentos) ? d.orcamentos : [],
     };
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
     sync.base = rec.updatedAt;
@@ -3294,6 +3392,7 @@
     renderVendaRows();
     renderFiltro();
     renderVendas();
+    renderOrcamentos();
     renderClienteForm();
     renderClientes();
     renderBackupStatus();
