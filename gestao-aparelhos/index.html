@@ -653,6 +653,7 @@
         <button class="tab" type="button" data-tab="compras">Compras <span class="pill" id="pillCompras">0</span></button>
         <button class="tab" type="button" data-tab="estoque">Estoque <span class="pill" id="pillEstoque">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
+        <button class="tab" type="button" data-tab="gastos">Gastos</button>
         <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
         <button class="tab" type="button" data-tab="central">Central <span class="pill" id="pillCentral" hidden>0</span></button>
         <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
@@ -717,11 +718,12 @@
         </div>
         <div class="actions" style="margin-top:10px">
           <button class="btn primary" type="button" id="btnLeilaoImportar">Analisar texto colado</button>
+          <button class="btn" type="button" id="btnLeilaoIA">Analisar texto com IA</button>
           <button class="btn amber" type="button" id="btnLerPrint">Ler print da tabela…</button>
           <input class="file-hidden" type="file" id="printFile" accept="image/*" multiple>
           <label class="toggle-row" style="margin:0"><input type="checkbox" id="leilaoSubstituir" checked> <span>substituir a análise atual</span></label>
         </div>
-        <div class="status-line" id="printStatus">Com a tabela em imagem, use <b>Ler print</b> ou cole a imagem aqui com Ctrl+V. A IA devolve o texto na caixa e o app analisa. Até 4 prints por vez.</div>
+        <div class="status-line" id="printStatus"><b>Analisar texto colado</b> lê planilha copiada (sem custo). <b>Analisar texto com IA</b> entende mensagem de WhatsApp ou lista solta e devolve a tabela organizada. <b>Ler print</b> faz o mesmo a partir de imagem (ou cole a imagem com Ctrl+V). Até 4 prints por vez.</div>
       </div>
 
       <div class="card">
@@ -849,6 +851,8 @@
                 <th class="num">Frete PY→SP</th>
                 <th class="num">Custo un. US$</th>
                 <th class="num">Custo un. R$</th>
+                <th class="num">Venda (lista)</th>
+                <th class="num">Margem</th>
                 <th></th>
               </tr>
             </thead>
@@ -865,6 +869,8 @@
                 <td class="num" id="ftF2">—</td>
                 <td class="num" id="ftCusto">—</td>
                 <td class="num amber" id="ftCustoBRL">—</td>
+                <td class="num" id="ftVendaLista">—</td>
+                <td class="num" id="ftMargemLista">—</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -962,6 +968,31 @@
         </div>
         <p class="hint">Clique na seta para ver os lotes de cada modelo (compra, data e custo). <b>Venda (lista)</b> vem da Lista de preços da Calculadora; o lucro potencial é o que sobra se tudo vender por esse preço.</p>
       </div>
+
+      <div class="card">
+        <h2>Saída sem venda (perda, brinde, troca, defeito)</h2>
+        <div class="grid">
+          <div class="field" style="grid-column: span 2">
+            <label for="perdaItem">Aparelho (do estoque)</label>
+            <select id="perdaItem" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select>
+          </div>
+          <div class="field"><label for="perdaQty">Quantidade</label><input type="number" id="perdaQty" min="1" step="1" value="1"></div>
+          <div class="field"><label for="perdaMotivo">Motivo</label><select id="perdaMotivo" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select></div>
+          <div class="field"><label for="perdaData">Data</label><input type="date" id="perdaData"></div>
+          <div class="field" style="grid-column: span 2"><label for="perdaDesc">Descrição</label><input type="text" id="perdaDesc" placeholder="ex: iPhone 12 prometido ao BYL"></div>
+          <div class="field" style="grid-column: 1 / -1"><label>IMEI de cada aparelho (opcional)</label><div class="cell-stack" id="perdaImeis" style="max-width:none;flex-direction:row;flex-wrap:wrap"></div></div>
+        </div>
+        <div class="actions">
+          <button class="btn danger" type="button" id="btnPerda">Registrar saída</button>
+          <span class="status-line" id="perdaStatus" style="margin:0"></span>
+        </div>
+        <p class="hint">A saída baixa o aparelho do estoque pelo custo de importação e entra como <b>perda</b> no resultado do período, sem venda. Brinde e troca em garantia contam como perda pelo custo.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Saídas e perdas registradas</h2><span class="badge danger" id="perdasTotal">R$ 0,00</span></div>
+        <div class="table-scroll" id="perdasList"></div>
+      </div>
     </section>
 
     <!-- ================= VENDAS ================= -->
@@ -1009,7 +1040,7 @@
             <thead>
               <tr>
                 <th>Aparelho (do estoque)</th>
-                <th>IMEI / observação</th>
+                <th>IMEI por aparelho / observação</th>
                 <th class="num">Qtd</th>
                 <th class="num">Preço venda un.</th>
                 <th class="num">Custo un.</th>
@@ -1049,6 +1080,44 @@
         <div id="vendasList"></div>
       </div>
 
+    </section>
+
+    <!-- ================= GASTOS ================= -->
+    <section id="tab-gastos" class="tabpanel">
+      <div class="filter-bar">
+        <div class="chips" id="gastosChips" role="group" aria-label="Período">
+          <button class="chip" type="button" data-gper="7d">7 dias</button>
+          <button class="chip" type="button" data-gper="mes">Este mês</button>
+          <button class="chip" type="button" data-gper="mesAnterior">Mês passado</button>
+          <button class="chip" type="button" data-gper="ano">Este ano</button>
+          <button class="chip" type="button" data-gper="tudo">Tudo</button>
+          <button class="chip" type="button" data-gper="custom">Personalizado</button>
+        </div>
+        <div class="filter-range" id="gastosRange" hidden>
+          <label for="gastosDe">de</label><input type="date" id="gastosDe">
+          <label for="gastosAte">até</label><input type="date" id="gastosAte">
+        </div>
+        <select id="gastosCompra" aria-label="Compra"></select>
+      </div>
+      <div class="stats" id="gastosStats"></div>
+      <div style="height:16px"></div>
+
+      <div class="card">
+        <h2>Novo gasto</h2>
+        <div class="grid">
+          <div class="field"><label for="gastoData">Data</label><input type="date" id="gastoData"></div>
+          <div class="field"><label for="gastoCategoria">Categoria</label><select id="gastoCategoria" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select></div>
+          <div class="field"><label for="gastoValor">Valor</label><div class="input-group"><span>R$</span><input type="number" id="gastoValor" step="0.01" min="0" placeholder="0,00"></div></div>
+          <div class="field" style="grid-column: span 2"><label for="gastoDesc">Descrição</label><input type="text" id="gastoDesc" placeholder="ex: frete Correios para Maria"></div>
+          <div class="field" style="grid-column: span 2"><label for="gastoCompraSel">Ligado a uma compra (opcional)</label><select id="gastoCompraSel" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select></div>
+        </div>
+        <div class="actions"><button class="btn primary" type="button" id="btnGasto">Salvar gasto</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Gastos do período</h2><span class="badge" id="gastosTotalBadge">R$ 0,00</span></div>
+        <div class="table-scroll" id="gastosList"></div>
+      </div>
     </section>
 
     <!-- ================= CLIENTES ================= -->
@@ -1291,6 +1360,8 @@
     compras: [],
     vendas: [],
     clientes: [],
+    perdas: [],
+    gastos: [],
   };
   let clienteEditId = null;
   const openItems = new Set();
@@ -1314,6 +1385,8 @@
             compras: Array.isArray(p.compras) ? p.compras : [],
             vendas: Array.isArray(p.vendas) ? p.vendas : [],
             clientes: Array.isArray(p.clientes) ? p.clientes : [],
+            perdas: Array.isArray(p.perdas) ? p.perdas : [],
+            gastos: Array.isArray(p.gastos) ? p.gastos : [],
           };
           return;
         }
@@ -1392,13 +1465,20 @@
     state.vendas.forEach((v) => v.itens.forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }));
     return n;
   }
+  function lostQty(compraId, rowId) {
+    let n = 0;
+    (state.perdas || []).forEach((p) => { if (p.compraId === compraId && p.rowId === rowId) n += numOr(p.qty, 0); });
+    return n;
+  }
+  const MOTIVOS_PERDA = { roubo: "Roubo / furto", defeito: "Defeito sem conserto", brinde: "Brinde / doação", troca: "Troca em garantia", uso: "Uso próprio", outro: "Outro" };
+  const CATEGORIAS_GASTO = { frete: "Frete / transporte", embalagem: "Embalagem", taxa: "Taxa de pagamento", deslocamento: "Deslocamento", assistencia: "Assistência / reparo", marketing: "Marketing", outros: "Outros" };
   function stockList() {
     const out = [];
     state.compras.forEach((c) => c.rows.forEach((r) => {
       const k = calcRow(r, c.settings);
-      const sold = soldQty(c.id, r.id);
+      const sold = soldQty(c.id, r.id); const lost = lostQty(c.id, r.id);
       out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data,
-        modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, avail: k.qty - sold });
+        modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
     }));
     return out;
   }
@@ -1491,6 +1571,8 @@
         <td class="num computed">${fmtUSD(c.frete2)}</td>
         <td class="num computed strong">${fmtUSD(c.custoUSD)}</td>
         <td class="num computed amber">${fmtBRL(c.custoBRL)}</td>
+        <td class="num computed">${vendaListaCell(row.modelo)}</td>
+        <td class="num computed ${margemListaClass(row.modelo, c.custoBRL)}">${margemListaCell(row.modelo, c.custoBRL)}</td>
         <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover aparelho" title="Remover">✕</button></td>`;
       tbody.appendChild(tr);
     });
@@ -1520,8 +1602,14 @@
     cells[2].textContent = fmtUSD(c.frete2);
     cells[3].textContent = fmtUSD(c.custoUSD);
     cells[4].textContent = fmtBRL(c.custoBRL);
+    cells[5].innerHTML = vendaListaCell(row.modelo);
+    cells[6].textContent = margemListaCell(row.modelo, c.custoBRL);
+    cells[6].className = "num computed " + margemListaClass(row.modelo, c.custoBRL);
     renderDraftTotals();
   }
+  function vendaListaCell(modelo) { const v = precoTabela(modelo); return v !== null ? fmtBRL(v) : '<span class="muted" title="Cadastre o modelo na Lista de preços da Calculadora">sem preço</span>'; }
+  function margemListaCell(modelo, custoBRL) { const v = precoTabela(modelo); return v !== null && v > 0 ? fmtPct((v - custoBRL) / v * 100) : "—"; }
+  function margemListaClass(modelo, custoBRL) { const v = precoTabela(modelo); if (v === null || !(v > 0)) return ""; return (v - custoBRL) / v * 100 >= numOr(state.calc.margem, 0) ? "pos" : "neg"; }
   function renderDraftTotals() {
     const t = calcTotals(state.draft.rows, state.settings);
     $("ftPreco").textContent = fmtUSD(t.preco);
@@ -1531,6 +1619,10 @@
     $("ftF2").textContent = fmtUSD(t.f2);
     $("ftCusto").textContent = fmtUSD(t.usd);
     $("ftCustoBRL").textContent = fmtBRL(t.brl);
+    let vl = 0, vlQty = 0; state.draft.rows.forEach((r) => { const v = precoTabela(r.modelo); if (v !== null) { const q = Math.max(1, Math.round(numOr(r.qty, 1))); vl += v * q; vlQty += q; } });
+    $("ftVendaLista").textContent = vl ? fmtBRL(vl) : "—";
+    $("ftMargemLista").textContent = vl ? fmtPct((vl - t.brl) / vl * 100) + (vlQty < t.qty ? " *" : "") : "—";
+    $("ftMargemLista").title = vlQty < t.qty ? "Alguns modelos não têm preço na lista; a margem considera só os que têm." : "";
     $("rsQtd").textContent = t.qty;
     $("rsLeilao").textContent = fmtUSD(t.preco);
     $("rsTaxa").textContent = fmtUSD(t.taxa);
@@ -1577,10 +1669,10 @@
       const c = state.compras.find((x) => x.id === d.editingId);
       if (!c) { toast("Compra não encontrada."); state.draft = newDraft(); save(); renderAll(); return; }
       for (const r of clean) {
-        const sold = soldQty(c.id, r.id);
-        if (r.qty < sold) { toast(`"${r.modelo}" já tem ${sold} vendido(s). A quantidade não pode ser menor.`); return; }
+        const sold = soldQty(c.id, r.id) + lostQty(c.id, r.id);
+        if (r.qty < sold) { toast(`"${r.modelo}" já tem ${sold} vendido(s)/baixado(s). A quantidade não pode ser menor.`); return; }
       }
-      const removed = c.rows.find((cr) => !clean.find((r) => r.id === cr.id) && soldQty(c.id, cr.id) > 0);
+      const removed = c.rows.find((cr) => !clean.find((r) => r.id === cr.id) && (soldQty(c.id, cr.id) + lostQty(c.id, cr.id)) > 0);
       if (removed) { toast(`"${removed.modelo}" já tem vendas e não pode ser removido.`); return; }
       c.nome = nome; c.data = d.data || todayISO(); c.settings = snap; c.rows = clean;
       toast("Compra atualizada.");
@@ -1852,6 +1944,25 @@
       st.innerHTML = "<b>Não deu:</b> " + esc(e && e.message ? e.message : e);
     } finally { lendoPrint = false; btn.disabled = false; }
   }
+  async function lerTextoIA() {
+    const texto = $("leilaoPaste").value.trim();
+    if (!texto) { toast("Cole o texto primeiro."); return; }
+    if (!syncAvailable || !sync.key) { toast("A IA só funciona no site publicado, depois de entrar."); return; }
+    if (lendoPrint) return;
+    lendoPrint = true; const st = $("printStatus"); const btn = $("btnLeilaoIA"); btn.disabled = true;
+    st.innerHTML = "Organizando o texto com IA… alguns segundos.";
+    try {
+      const res = await fetch("/api/ler-tabela", { method: "POST", headers: { "content-type": "application/json", "x-sync-key": sync.key }, body: JSON.stringify({ texto }) });
+      const data = await res.json().catch(() => null);
+      if (res.status !== 200) { st.innerHTML = "<b>Não deu:</b> " + esc(data && data.error ? data.error : "erro " + res.status); return; }
+      $("leilaoPaste").value = data.texto || "";
+      const rows = importarLeilao(data.texto || "");
+      st.innerHTML = `A IA organizou <b>${numOr(data.linhas, rows.length)}</b> linha(s); o texto arrumado está na caixa. Confira e edite se precisar.` + (data.tokens ? ` <span class="muted">(${data.tokens.entrada + data.tokens.saida} tokens)</span>` : "");
+      aplicarLinhas(rows, "texto");
+    } catch (e) { st.innerHTML = "<b>Não deu:</b> " + esc(e && e.message ? e.message : e); }
+    finally { lendoPrint = false; btn.disabled = false; }
+  }
+  $("btnLeilaoIA").addEventListener("click", lerTextoIA);
   $("btnLerPrint").addEventListener("click", () => $("printFile").click());
   $("printFile").addEventListener("change", (e) => { lerPrints(e.target.files); e.target.value = ""; });
   document.addEventListener("paste", (e) => {
@@ -1985,7 +2096,7 @@
       const t = calcTotals(c.rows, c.settings);
       const items = stock.filter((s) => s.compraId === c.id);
       const avail = items.reduce((a, s) => a + s.avail, 0);
-      const sold = t.qty - avail;
+      const sold = items.reduce((a, s) => a + s.sold, 0);
       const el = document.createElement("div");
       el.className = "item" + (openItems.has(c.id) ? " open" : "");
       const statusBadge = avail === 0 ? `<span class="badge neutral">tudo vendido</span>` : sold > 0 ? `<span class="badge teal">${sold} vendido(s)</span>` : "";
@@ -2005,10 +2116,10 @@
         <div class="item-body">
           <div class="table-scroll">
             <table class="wide">
-              <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Estoque</th></tr></thead>
+              <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Perdas</th><th class="num">Estoque</th></tr></thead>
               <tbody>
-                ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, avail: k.qty };
-                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${k.notaPct}%</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
+                ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, lost: 0, avail: k.qty };
+                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${k.notaPct}%</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
               </tbody>
             </table>
           </div>
@@ -2041,8 +2152,8 @@
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
       const c = state.compras.find((x) => x.id === b.dataset.del);
       if (!c) return;
-      const sold = c.rows.reduce((a, r) => a + soldQty(c.id, r.id), 0);
-      if (sold > 0) { toast("Esta compra tem aparelhos vendidos. Exclua as vendas primeiro."); return; }
+      const sold = c.rows.reduce((a, r) => a + soldQty(c.id, r.id) + lostQty(c.id, r.id), 0);
+      if (sold > 0) { toast("Esta compra tem aparelhos vendidos ou baixados. Exclua as vendas/perdas primeiro."); return; }
       if (!confirm(`Excluir a compra “${c.nome}”?`)) return;
       state.compras = state.compras.filter((x) => x.id !== c.id);
       if (state.draft.editingId === c.id) state.draft = newDraft();
@@ -2086,7 +2197,9 @@
       <div class="tile"><div class="label">Aparelhos</div><div class="value">${tQty}</div><div class="sub">${grupos.length} modelo(s)</div></div>
       <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">dinheiro parado</div></div>
       <div class="tile"><div class="label">Venda potencial</div><div class="value">${fmtBRL(tVenda)}</div><div class="sub">${semPreco ? semPreco + " modelo(s) sem preço na lista" : "pela lista de preços"}</div></div>
-      <div class="tile ${tLucro < 0 ? "danger" : "teal"}"><div class="label">Lucro potencial</div><div class="value">${fmtBRL(tLucro)}</div><div class="sub">${tVenda > 0 ? "margem de " + fmtPct(tLucro / tVenda * 100) : "—"}</div></div>`;
+      <div class="tile ${tLucro < 0 ? "danger" : "teal"}"><div class="label">Lucro potencial</div><div class="value">${fmtBRL(tLucro)}</div><div class="sub">${tVenda > 0 ? "margem de " + fmtPct(tLucro / tVenda * 100) : "—"}</div></div>
+      <div class="tile ${perdasCustoTotal() > 0 ? "danger" : ""}"><div class="label">Perdas</div><div class="value">${fmtBRL(perdasCustoTotal())}</div><div class="sub">${(state.perdas || []).reduce((a, p) => a + numOr(p.qty, 0), 0)} aparelho(s) baixado(s)</div></div>`;
+    renderPerdas();
 
     const tbody = $("estoqueRows");
     tbody.innerHTML = "";
@@ -2130,6 +2243,49 @@
     $("etMargem").textContent = fmtPct(tVenda > 0 ? tLucro / tVenda * 100 : null);
   }
   $("estoqueBusca").addEventListener("input", renderEstoque);
+
+  /* ---- perdas / saídas sem venda ---- */
+  const perdaCusto = (p) => itemCusto({ compraId: p.compraId, rowId: p.rowId, custoBRL: p.custoBRL });
+  const perdasCustoTotal = () => (state.perdas || []).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
+  function perdasPeriodo(f) { const r = periodoRange(f); return (state.perdas || []).filter((p) => !r || (p.data >= r[0] && p.data <= r[1])); }
+  function renderPerdaForm() {
+    const sel = $("perdaItem"); const atual = sel.value;
+    const stock = stockList().filter((x) => x.avail > 0);
+    sel.innerHTML = stock.length ? `<option value="">— escolher —</option>` + stock.map((x) => `<option value="${x.key}" ${x.key === atual ? "selected" : ""}>${esc(x.modelo)} · ${esc(x.compraNome)} · ${x.avail} disp. · custo ${fmtBRL(x.custoBRL)}</option>`).join("") : `<option value="">— sem aparelhos em estoque —</option>`;
+    const mot = $("perdaMotivo"); if (!mot.options.length) mot.innerHTML = Object.entries(MOTIVOS_PERDA).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    if (!$("perdaData").value) $("perdaData").value = todayISO();
+    renderPerdaImeis();
+  }
+  function renderPerdaImeis() {
+    const n = Math.min(50, Math.max(1, Math.round(numOr($("perdaQty").value, 1))));
+    const box = $("perdaImeis"); const atuais = [...box.querySelectorAll("input")].map((i) => i.value);
+    box.innerHTML = Array.from({ length: n }, (_, k) => `<input type="text" inputmode="numeric" data-k="${k}" value="${esc(atuais[k] || "")}" placeholder="IMEI ${k + 1}" style="flex:1;min-width:160px">`).join("");
+  }
+  $("perdaQty").addEventListener("input", renderPerdaImeis);
+  $("btnPerda").addEventListener("click", () => {
+    const key = $("perdaItem").value; const st = stockList().find((x) => x.key === key);
+    if (!st) { toast("Escolha o aparelho."); return; }
+    const q = Math.max(1, Math.round(numOr($("perdaQty").value, 1)));
+    if (q > st.avail) { toast(`Só há ${st.avail} disponível(is) desse lote.`); return; }
+    const motivo = $("perdaMotivo").value || "outro";
+    if (!confirm(`Baixar ${q} × ${st.modelo} do estoque como "${MOTIVOS_PERDA[motivo]}"? Custo: ${fmtBRL(st.custoBRL * q)}.`)) return;
+    const imeis = [...$("perdaImeis").querySelectorAll("input")].map((i) => i.value.trim());
+    state.perdas = state.perdas || [];
+    state.perdas.unshift({ id: uid(), data: $("perdaData").value || todayISO(), compraId: st.compraId, rowId: st.rowId, modelo: st.modelo, qty: q, motivo, descricao: $("perdaDesc").value.trim(), imeis, custoBRL: st.custoBRL, criadoEm: Date.now() });
+    $("perdaDesc").value = ""; $("perdaQty").value = 1;
+    save(); renderAll(); toast("Saída registrada. O estoque foi atualizado.");
+  });
+  function renderPerdas() {
+    renderPerdaForm();
+    const lista = state.perdas || [];
+    $("perdasTotal").textContent = fmtBRL(perdasCustoTotal());
+    $("perdasList").innerHTML = lista.length ? `<table class="wide"><thead><tr><th>Data</th><th>Aparelho</th><th class="num">Qtd</th><th>Motivo</th><th>Descrição / IMEI</th><th class="num">Custo</th><th></th></tr></thead><tbody>${lista.map((p) => `<tr><td>${fmtDate(p.data)}</td><td>${esc(p.modelo)}</td><td class="num">${p.qty}</td><td>${esc(MOTIVOS_PERDA[p.motivo] || p.motivo)}</td><td class="muted" style="white-space:normal">${esc([p.descricao, ...(p.imeis || []).filter(Boolean)].filter(Boolean).join(" · ")) || "—"}</td><td class="num neg">${fmtBRL(perdaCusto(p) * p.qty)}</td><td><button class="icon-btn" type="button" data-delperda="${p.id}" aria-label="Excluir" title="Excluir">✕</button></td></tr>`).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhuma saída registrada.</div>`;
+    $("perdasList").querySelectorAll("[data-delperda]").forEach((b) => b.addEventListener("click", () => {
+      const p = state.perdas.find((x) => x.id === b.dataset.delperda); if (!p) return;
+      if (!confirm(`Excluir esta saída? ${p.qty} × ${p.modelo} volta para o estoque.`)) return;
+      state.perdas = state.perdas.filter((x) => x.id !== p.id); save(); renderAll(); toast("Saída excluída.");
+    }));
+  }
   $("btnEstoquePdf").addEventListener("click", () => {
     const grupos = estoqueAgrupado();
     if (!grupos.length) { toast("Estoque vazio."); return; }
@@ -2194,7 +2350,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><select data-idx="${idx}" data-field="key">${stockOptions(key)}</select></td>
-        <td><input type="text" data-idx="${idx}" data-field="obs" value="${esc(it.obs)}" placeholder="opcional"></td>
+        <td><div class="cell-stack" style="min-width:200px">${s ? imeiInputs(it, idx, q) : ""}<input type="text" data-idx="${idx}" data-field="obs" value="${esc(it.obs)}" placeholder="observação (opcional)"></div></td>
         <td class="num"><input type="number" step="1" min="1" ${s ? `max="${s.avail}"` : ""} data-idx="${idx}" data-field="qty" value="${it.qty ?? 1}"></td>
         <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="preco" value="${it.preco ?? ""}" placeholder="R$"></td>
         <td class="num computed">${s ? fmtBRL(custo) : "—"}</td>
@@ -2218,11 +2374,18 @@
       save(); renderVendaRows();
     }));
     tbody.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", onVendaInput));
+    tbody.querySelectorAll('input[data-field="qty"]').forEach((inp) => inp.addEventListener("change", () => renderVendaRows()));
     tbody.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
       state.vendaDraft.itens.splice(Number(b.dataset.remove), 1);
       save(); renderVendaRows();
     }));
     renderVendaDraftTotals();
+  }
+  function imeiInputs(it, idx, q) {
+    const n = Math.min(50, Math.max(1, Math.round(q || 1)));
+    let h = "";
+    for (let k = 0; k < n; k++) h += `<input type="text" inputmode="numeric" data-idx="${idx}" data-field="imei" data-k="${k}" value="${esc((it.imeis || [])[k] || "")}" placeholder="IMEI ${k + 1}">`;
+    return h;
   }
   function onVendaInput(e) {
     const idx = Number(e.target.dataset.idx);
@@ -2231,6 +2394,7 @@
     const f = e.target.dataset.field, v = e.target.value;
     if (f === "qty") it.qty = v === "" ? 1 : Number(v);
     else if (f === "preco") it.preco = v === "" ? null : Number(v);
+    else if (f === "imei") { it.imeis = it.imeis || []; it.imeis[Number(e.target.dataset.k)] = v.trim(); save(); return; }
     else it.obs = v;
     save();
     const s = stockList().find((x) => x.key === it.compraId + "|" + it.rowId);
@@ -2296,8 +2460,9 @@
       id: uid(), data: d.data || todayISO(), clienteId: cl.id, clienteNome: cl.nome, criadoEm: Date.now(),
       itens: itens.map((i) => {
         const s = stock.find((x) => x.key === i.compraId + "|" + i.rowId);
+        const q = Math.max(1, Math.round(numOr(i.qty, 1)));
         return { compraId: i.compraId, rowId: i.rowId, modelo: s.modelo, custoUSD: s.custoUSD, custoBRL: s.custoBRL,
-          qty: Math.max(1, Math.round(numOr(i.qty, 1))), preco: numOr(i.preco, 0), obs: (i.obs || "").trim() };
+          qty: q, preco: numOr(i.preco, 0), obs: (i.obs || "").trim(), imeis: Array.from({ length: q }, (_, k) => String((i.imeis || [])[k] || "").trim()) };
       }),
     });
     state.vendaDraft = newVendaDraft();
@@ -2388,6 +2553,9 @@
     let venda = 0, custo = 0, qty = 0;
     vendas.forEach((v) => { const t = vendaTotals(v); venda += t.venda; custo += t.custo; qty += t.qty; });
     const lucro = venda - custo;
+    const gastosP = gastosPeriodo({ ...state.filtro, compraId: "" }).reduce((a, g) => a + numOr(g.valor, 0), 0);
+    const perdasP = perdasPeriodo(state.filtro).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
+    const resultado = lucro - gastosP - perdasP;
     const stock = stockList();
     const availUnits = stock.reduce((a, s) => a + s.avail, 0);
     const stockBRL = stock.reduce((a, s) => a + s.avail * s.custoBRL, 0);
@@ -2395,6 +2563,8 @@
       <div class="tile"><div class="label">Vendido</div><div class="value">${fmtBRL(venda)}</div><div class="sub">${qty} aparelho(s) em ${vendas.length} venda(s)</div></div>
       <div class="tile ${lucro < 0 ? "danger" : "teal"}"><div class="label">Lucro</div><div class="value">${fmtBRL(lucro)}</div><div class="sub">${venda > 0 ? "margem de " + fmtPct(lucro / venda * 100) : "—"}</div></div>
       <div class="tile"><div class="label">Custo dos vendidos</div><div class="value">${fmtBRL(custo)}</div><div class="sub">preço de compra real</div></div>
+      <div class="tile"><div class="label">Gastos + perdas</div><div class="value">${fmtBRL(gastosP + perdasP)}</div><div class="sub">${fmtBRL(gastosP)} gastos · ${fmtBRL(perdasP)} perdas</div></div>
+      <div class="tile ${resultado < 0 ? "danger" : "teal"}"><div class="label">Resultado</div><div class="value">${fmtBRL(resultado)}</div><div class="sub">lucro − gastos − perdas</div></div>
       <div class="tile"><div class="label">Em estoque</div><div class="value">${availUnits}</div><div class="sub">${fmtBRL(stockBRL)} em custo</div></div>`;
     $("pillVendas").textContent = state.vendas.length;
     const cl = state.filtro.clienteId ? state.clientes.find((c) => c.id === state.filtro.clienteId) : null;
@@ -2433,7 +2603,7 @@
             <table class="wide">
               <thead><tr><th>Aparelho</th><th>IMEI / obs.</th><th class="num">Qtd</th><th class="num">Venda un.</th><th class="num">Custo un.</th><th class="num">Lucro un.</th><th class="num">Lucro</th></tr></thead>
               <tbody>${v.itens.map((i) => { const c = itemCusto(i); const l = i.preco - c;
-                return `<tr><td>${esc(i.modelo)}</td><td class="muted">${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num computed">${fmtBRL(c)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l * i.qty)}</td></tr>`; }).join("")}</tbody>
+                return `<tr><td>${esc(i.modelo)}</td><td class="muted" style="white-space:normal">${esc([...(i.imeis || []).filter(Boolean), i.obs].filter(Boolean).join(" · ")) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num computed">${fmtBRL(c)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l)}</td><td class="num ${l < 0 ? "neg" : "pos"}">${fmtBRL(l * i.qty)}</td></tr>`; }).join("")}</tbody>
             </table>
           </div>
           <div class="actions">
@@ -2461,6 +2631,44 @@
       save(); renderAll(); toast("Venda excluída.");
     }));
   }
+
+  /* ================= GASTOS ================= */
+  let gFiltro = { periodo: "mes", de: "", ate: "", compraId: "" };
+  function gastosPeriodo(f) { const r = periodoRange(f); return (state.gastos || []).filter((g) => (!r || (g.data >= r[0] && g.data <= r[1])) && (!f.compraId || g.compraId === f.compraId)); }
+  function renderGastos() {
+    document.querySelectorAll("#gastosChips .chip").forEach((c) => c.classList.toggle("active", c.dataset.gper === gFiltro.periodo));
+    $("gastosRange").hidden = gFiltro.periodo !== "custom";
+    const compras = state.compras.map((c) => `<option value="${c.id}">${esc(c.nome)} · ${fmtDate(c.data)}</option>`).join("");
+    $("gastosCompra").innerHTML = `<option value="">Todas as compras / sem vínculo</option>` + compras; $("gastosCompra").value = gFiltro.compraId;
+    $("gastoCompraSel").innerHTML = `<option value="">— nenhuma —</option>` + compras;
+    const cat = $("gastoCategoria"); if (!cat.options.length) cat.innerHTML = Object.entries(CATEGORIAS_GASTO).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+    if (!$("gastoData").value) $("gastoData").value = todayISO();
+    const lista = gastosPeriodo(gFiltro).slice().sort((a, b) => b.data.localeCompare(a.data));
+    const total = lista.reduce((a, g) => a + numOr(g.valor, 0), 0);
+    const porCat = {}; lista.forEach((g) => { porCat[g.categoria] = (porCat[g.categoria] || 0) + numOr(g.valor, 0); });
+    const topCat = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const perdas = perdasPeriodo(gFiltro).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
+    $("gastosStats").innerHTML = `
+      <div class="tile danger"><div class="label">Gastos</div><div class="value">${fmtBRL(total)}</div><div class="sub">${lista.length} lançamento(s) · ${periodoLabel(gFiltro)}</div></div>
+      <div class="tile"><div class="label">Por categoria</div><div class="value" style="font-size:0.95rem;line-height:1.5">${topCat.map(([k, v]) => esc(CATEGORIAS_GASTO[k] || k) + ": " + fmtBRL(v)).join("<br>") || "—"}</div></div>
+      <div class="tile"><div class="label">Perdas no período</div><div class="value">${fmtBRL(perdas)}</div><div class="sub">saídas sem venda, pelo custo</div></div>
+      <div class="tile amber"><div class="label">Gastos + perdas</div><div class="value">${fmtBRL(total + perdas)}</div><div class="sub">o que sai do lucro bruto</div></div>`;
+    $("gastosTotalBadge").textContent = fmtBRL(total);
+    $("gastosList").innerHTML = lista.length ? `<table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Compra</th><th class="num">Valor</th><th></th></tr></thead><tbody>${lista.map((g) => { const c = state.compras.find((x) => x.id === g.compraId); return `<tr><td>${fmtDate(g.data)}</td><td>${esc(CATEGORIAS_GASTO[g.categoria] || g.categoria)}</td><td style="white-space:normal">${esc(g.descricao) || "—"}</td><td class="muted">${c ? esc(c.nome) : "—"}</td><td class="num neg">${fmtBRL(g.valor)}</td><td><button class="icon-btn" type="button" data-delgasto="${g.id}" aria-label="Excluir" title="Excluir">✕</button></td></tr>`; }).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhum gasto no período.</div>`;
+    $("gastosList").querySelectorAll("[data-delgasto]").forEach((b) => b.addEventListener("click", () => { if (!confirm("Excluir este gasto?")) return; state.gastos = state.gastos.filter((x) => x.id !== b.dataset.delgasto); save(); renderAll(); }));
+  }
+  document.querySelectorAll("#gastosChips .chip").forEach((c) => c.addEventListener("click", () => { gFiltro.periodo = c.dataset.gper; renderGastos(); }));
+  $("gastosDe").addEventListener("input", (e) => { gFiltro.de = e.target.value; renderGastos(); });
+  $("gastosAte").addEventListener("input", (e) => { gFiltro.ate = e.target.value; renderGastos(); });
+  $("gastosCompra").addEventListener("change", (e) => { gFiltro.compraId = e.target.value; renderGastos(); });
+  $("btnGasto").addEventListener("click", () => {
+    const valor = numOr($("gastoValor").value, 0);
+    if (!(valor > 0)) { toast("Informe o valor."); $("gastoValor").focus(); return; }
+    state.gastos = state.gastos || [];
+    state.gastos.unshift({ id: uid(), data: $("gastoData").value || todayISO(), categoria: $("gastoCategoria").value || "outros", valor, descricao: $("gastoDesc").value.trim(), compraId: $("gastoCompraSel").value || null, criadoEm: Date.now() });
+    $("gastoValor").value = ""; $("gastoDesc").value = "";
+    save(); renderAll(); toast("Gasto salvo.");
+  });
 
   /* ================= CLIENTES ================= */
   function renderClienteForm() {
@@ -2619,7 +2827,7 @@
       ${docHeader("Relação de aparelhos", meta)}
       <table>
         <thead><tr><th>Aparelho</th><th>IMEI / observação</th><th class="num">Qtd</th><th class="num">Valor unitário</th><th class="num">Total</th></tr></thead>
-        <tbody>${v.itens.map((i) => `<tr><td>${esc(i.modelo)}</td><td>${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco * i.qty)}</td></tr>`).join("")}</tbody>
+        <tbody>${v.itens.flatMap((i) => { const im = (i.imeis || []).filter(Boolean); if (!im.length) return [`<tr><td>${esc(i.modelo)}</td><td>${esc(i.obs) || "—"}</td><td class="num">${i.qty}</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco * i.qty)}</td></tr>`]; return Array.from({ length: i.qty }, (_, k) => `<tr><td>${esc(i.modelo)}</td><td>${esc((i.imeis || [])[k] || "—")}${k === 0 && i.obs ? " · " + esc(i.obs) : ""}</td><td class="num">1</td><td class="num">${fmtBRL(i.preco)}</td><td class="num">${fmtBRL(i.preco)}</td></tr>`); }).join("")}</tbody>
         <tfoot><tr><td colspan="2">Total</td><td class="num">${t.qty}</td><td></td><td class="num">${fmtBRL(t.venda)}</td></tr></tfoot>
       </table>
       <div class="total-box"><div>Total: ${fmtBRL(t.venda)}</div></div>
@@ -2676,6 +2884,8 @@
           compras: Array.isArray(d.compras) ? d.compras : [],
           vendas: Array.isArray(d.vendas) ? d.vendas : [],
           clientes: Array.isArray(d.clientes) ? d.clientes : [],
+          perdas: Array.isArray(d.perdas) ? d.perdas : [],
+          gastos: Array.isArray(d.gastos) ? d.gastos : [],
         };
         save(); renderAll(); toast("Backup restaurado.");
       } catch (e) { toast("Não consegui ler o arquivo."); }
@@ -2704,7 +2914,7 @@
     if (!confirm("Apagar TODAS as compras, vendas e clientes deste navegador?")) return;
     if (!confirm("Tem certeza? Isso não pode ser desfeito sem um backup.")) return;
     const settings = state.settings, precos = state.precos;
-    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), calc: newCalc(), precos, ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [] };
+    state = { settings, draft: newDraft(), vendaDraft: newVendaDraft(), filtro: newFiltro(), calc: newCalc(), precos, ultimoBackup: null, updatedAt: Date.now(), compras: [], vendas: [], clientes: [], perdas: [], gastos: [] };
     save(); renderAll(); toast("Dados apagados.");
   });
 
@@ -2742,6 +2952,8 @@
       compras: Array.isArray(d.compras) ? d.compras : [],
       vendas: Array.isArray(d.vendas) ? d.vendas : [],
       clientes: Array.isArray(d.clientes) ? d.clientes : [],
+      perdas: Array.isArray(d.perdas) ? d.perdas : [],
+      gastos: Array.isArray(d.gastos) ? d.gastos : [],
     };
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
     sync.base = rec.updatedAt;
@@ -2756,7 +2968,7 @@
     if (res.status === 401) { sync = { key: "", base: 0, ultimo: null }; saveSync(); showLogin("A senha mudou. Entre de novo."); }
     return { status: res.status, data };
   }
-  const temDados = () => state.compras.length + state.vendas.length + state.clientes.length > 0;
+  const temDados = () => state.compras.length + state.vendas.length + state.clientes.length + (state.perdas || []).length + (state.gastos || []).length > 0;
   async function syncPush() {
     const r = await syncRequest("PUT", { baseUpdatedAt: sync.base || 0, updatedAt: state.updatedAt || Date.now(), dados: state });
     if (r.status === 200) { sync.base = r.data.updatedAt; sync.ultimo = Date.now(); saveSync(); renderSyncForm(); return true; }
@@ -3012,6 +3224,7 @@
     renderRows();
     renderCompras();
     renderEstoque();
+    renderGastos();
     renderVendaDraftHead();
     renderVendaRows();
     renderFiltro();

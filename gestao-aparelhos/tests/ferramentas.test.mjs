@@ -23,7 +23,9 @@ test("nível 1 executa com dados reais; nível 2 só propõe e não altera o est
   resetStores(); await semearEstado();
   const c = ctx("AGENTE_04_PRECIFICACAO");
   const r = await executarFerramenta("listar_estoque", {}, c);
-  assert.ok(r.ok); assert.equal(r.resultado.totalAparelhos, 8);
+  assert.ok(r.ok); assert.equal(r.resultado.totalAparelhos, 7);
+  const g = await executarFerramenta("listar_gastos", { de: "2026-10-01" }, c); assert.equal(g.resultado.total, 100.5);
+  const pe = await executarFerramenta("listar_perdas", {}, c); assert.equal(pe.resultado.aparelhos, 1);
   const p = await executarFerramenta("propor_preco_lista", { modelo: "iPhone 13 128GB", preco: 1750, justificativa: "giro alto" }, c);
   assert.ok(p.ok); assert.equal(p.proposta.tipo, "preco_lista"); assert.ok(p.resultado.aguardando_aprovacao);
   const { dados } = await D.carregarEstado(getStore({ name: "gestao-aparelhos" }));
@@ -39,6 +41,7 @@ test("executarProposta aplica preço e compra com controle de concorrência", as
   assert.equal(dados.precos.find((x) => x.modelo === "iPhone 13 128GB").preco, 1750);
   assert.equal(dados.compras[0].nome, "Leilão teste"); assert.equal(dados.compras[0].origem, "agente");
   assert.equal(D.estoqueAgrupado(dados).find((g) => g.modelo === "iPhone 15 128GB").qty, 3);
+  assert.equal(dados.perdas.length, 1, "perdas preservadas na gravação");
 });
 test("memória via ferramenta grava agente e tarefa", async () => {
   resetStores(); const c = ctx("AGENTE_06_FINANCEIRO");

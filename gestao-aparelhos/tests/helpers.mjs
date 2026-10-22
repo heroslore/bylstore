@@ -14,6 +14,8 @@ export function estadoExemplo() {
       { id: "v2", data: "2026-10-12", clienteId: "k2", clienteNome: "Maria", itens: [{ compraId: "c1", rowId: "r2", modelo: "iPhone 14 Pro 128GB", qty: 1, preco: 2600 }] },
     ],
     clientes: [{ id: "k1", nome: "Loja do Zé" }, { id: "k2", nome: "Maria" }],
+    perdas: [{ id: "pd1", data: "2026-10-15", compraId: "c1", rowId: "r1", modelo: "iPhone 13 128GB", qty: 1, motivo: "brinde", descricao: "prometido ao BYL", imeis: ["3512345"], custoBRL: 1486.51 }],
+    gastos: [{ id: "g1", data: "2026-10-05", categoria: "frete", valor: 80, descricao: "Correios", compraId: null }, { id: "g2", data: "2026-10-11", categoria: "embalagem", valor: 20.5, descricao: "", compraId: "c2" }],
     updatedAt: 1000,
   };
 }

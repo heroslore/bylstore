@@ -13,11 +13,12 @@ test("cálculo de custo bate com o app (nota 70%, dólar 5,40 e nota 90%, dólar
 test("estoque desconta vendas e agrupa por modelo com custo médio", () => {
   const s = estadoExemplo();
   const stock = D.stockList(s);
-  assert.equal(stock.find((x) => x.rowId === "r1").avail, 3);
+  assert.equal(stock.find((x) => x.rowId === "r1").avail, 2, "5 comprados − 2 vendidos − 1 perda");
+  assert.equal(stock.find((x) => x.rowId === "r1").lost, 1);
   assert.equal(stock.find((x) => x.rowId === "r2").avail, 1);
   const g = D.estoqueAgrupado(s).find((x) => x.modelo === "iPhone 13 128GB");
-  assert.equal(g.qty, 7); assert.equal(g.lotes.length, 2); assert.equal(g.vendaLista, 1700);
-  assert.equal(g.custoMedio, D.round2((3 * 1486.51 + 4 * 1463.09) / 7));
+  assert.equal(g.qty, 6); assert.equal(g.lotes.length, 2); assert.equal(g.vendaLista, 1700);
+  assert.equal(g.custoMedio, D.round2((2 * 1486.51 + 4 * 1463.09) / 6));
 });
 test("lucro da venda usa o custo recalculado da compra", () => {
   const s = estadoExemplo();
@@ -39,6 +40,10 @@ test("resumo financeiro, giro, parados, previsão e inconsistências", () => {
   const s = estadoExemplo(); const agora = new Date("2026-10-22T12:00:00Z");
   const f = D.resumoFinanceiro(s, { de: "2026-10-01", ate: "2026-10-31" });
   assert.equal(f.vendas, 1); assert.equal(f.faturamento, 2600); assert.equal(f.lucroBruto, D.round2(2600 - 2240.74));
+  assert.equal(f.gastos, 100.5); assert.equal(f.perdas, 1486.51); assert.equal(f.perdasAparelhos, 1);
+  assert.equal(f.resultadoLiquido, D.round2(2600 - 2240.74 - 100.5 - 1486.51));
+  assert.equal(D.gastosPeriodo(s, { compraId: "c2" }).length, 1);
+  assert.equal(D.perdasPeriodo(s)[0].imeis[0], "3512345");
   const g = D.giroPorModelo(s, { dias: 90, agora });
   assert.equal(g.modelos.find((m) => m.modelo === "iPhone 13 128GB").vendidosNoPeriodo, 2);
   const p = D.aparelhosParados(s, { dias: 30, agora });

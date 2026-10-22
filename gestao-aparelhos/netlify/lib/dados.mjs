@@ -33,15 +33,28 @@ export function soldQty(state, compraId, rowId) {
   (state.vendas || []).forEach((v) => (v.itens || []).forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }));
   return n;
 }
+export function lostQty(state, compraId, rowId) {
+  let n = 0;
+  (state.perdas || []).forEach((p) => { if (p.compraId === compraId && p.rowId === rowId) n += numOr(p.qty, 0); });
+  return n;
+}
 export function stockList(state) {
   const out = [];
   (state.compras || []).forEach((c) => (c.rows || []).forEach((r) => {
     const k = calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS);
-    const sold = soldQty(state, c.id, r.id);
+    const sold = soldQty(state, c.id, r.id); const lost = lostQty(state, c.id, r.id);
     out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data, modelo: r.modelo,
-      custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, avail: k.qty - sold });
+      custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
   }));
   return out;
+}
+export const MOTIVOS_PERDA = { roubo: "Roubo / furto", defeito: "Defeito sem conserto", brinde: "Brinde / doação", troca: "Troca em garantia", uso: "Uso próprio", outro: "Outro" };
+export const CATEGORIAS_GASTO = { frete: "Frete / transporte", embalagem: "Embalagem", taxa: "Taxa de pagamento", deslocamento: "Deslocamento", assistencia: "Assistência / reparo", marketing: "Marketing", outros: "Outros" };
+export function perdasPeriodo(state, { de, ate } = {}) {
+  return (state.perdas || []).filter((p) => (!de || p.data >= de) && (!ate || p.data <= ate)).map((p) => { const custo = itemCusto(state, { compraId: p.compraId, rowId: p.rowId, custoBRL: p.custoBRL }); return { id: p.id, data: p.data, modelo: p.modelo, qty: numOr(p.qty, 0), motivo: p.motivo, motivoDescricao: MOTIVOS_PERDA[p.motivo] || p.motivo, descricao: p.descricao || "", imeis: (p.imeis || []).filter(Boolean), custoUnit: round2(custo), custoTotal: round2(custo * numOr(p.qty, 0)) }; });
+}
+export function gastosPeriodo(state, { de, ate, compraId } = {}) {
+  return (state.gastos || []).filter((g) => (!de || g.data >= de) && (!ate || g.data <= ate) && (!compraId || g.compraId === compraId)).map((g) => ({ id: g.id, data: g.data, categoria: g.categoria, categoriaDescricao: CATEGORIAS_GASTO[g.categoria] || g.categoria, valor: round2(numOr(g.valor, 0)), descricao: g.descricao || "", compraId: g.compraId || null }));
 }
 export function itemCusto(state, i) {
   const c = (state.compras || []).find((x) => x.id === i.compraId);
@@ -83,7 +96,7 @@ export function estoqueAgrupado(state) {
     if (!groups.has(k)) groups.set(k, { modelo: String(s.modelo || "").trim(), qty: 0, custoBRL: 0, custoUSD: 0, lotes: [] });
     const g = groups.get(k);
     g.qty += s.avail; g.custoBRL += s.avail * s.custoBRL; g.custoUSD += s.avail * s.custoUSD;
-    g.lotes.push({ compra: s.compraNome, data: s.compraData, disponivel: s.avail, vendidos: s.sold, custoBRL: round2(s.custoBRL), custoUSD: round2(s.custoUSD) });
+    g.lotes.push({ compra: s.compraNome, data: s.compraData, disponivel: s.avail, vendidos: s.sold, perdidos: s.lost, custoBRL: round2(s.custoBRL), custoUSD: round2(s.custoUSD) });
   });
   return [...groups.values()].map((g) => {
     const venda = precoTabela(state, g.modelo);
@@ -113,15 +126,21 @@ export function resumoFinanceiro(state, { de, ate } = {}) {
   });
   const estoque = estoqueAgrupado(state);
   const capitalEstoque = estoque.reduce((a, g) => a + g.custoTotal, 0);
+  const gastosLista = gastosPeriodo(state, { de, ate }); const gastos = gastosLista.reduce((a, g) => a + g.valor, 0);
+  const gastosCat = {}; gastosLista.forEach((g) => { gastosCat[g.categoria] = (gastosCat[g.categoria] || 0) + g.valor; });
+  const perdasLista = perdasPeriodo(state, { de, ate }); const perdas = perdasLista.reduce((a, p) => a + p.custoTotal, 0);
   return {
     periodo: { de: de || null, ate: ate || null }, vendas: vendas.length, aparelhos: qty,
     faturamento: round2(faturamento), custoDasVendas: round2(custo), lucroBruto: round2(faturamento - custo),
     margemBruta: faturamento > 0 ? round1((faturamento - custo) / faturamento * 100) : null,
     ticketMedio: vendas.length ? round2(faturamento / vendas.length) : null,
     capitalEmEstoque: round2(capitalEstoque), aparelhosEmEstoque: estoque.reduce((a, g) => a + g.qty, 0),
+    gastos: round2(gastos), gastosPorCategoria: Object.entries(gastosCat).map(([k, v]) => ({ categoria: CATEGORIAS_GASTO[k] || k, valor: round2(v) })).sort((a, b) => b.valor - a.valor),
+    perdas: round2(perdas), perdasAparelhos: perdasLista.reduce((a, p) => a + p.qty, 0),
+    resultadoLiquido: round2(faturamento - custo - gastos - perdas),
     porCliente: [...porCliente.values()].map((c) => ({ ...c, faturamento: round2(c.faturamento), lucro: round2(c.lucro) })).sort((a, b) => b.faturamento - a.faturamento),
     porModelo: [...porModelo.values()].map((m) => ({ ...m, faturamento: round2(m.faturamento), lucro: round2(m.lucro) })).sort((a, b) => b.lucro - a.lucro),
-    observacao: "Não há despesas operacionais, tributos nem tarifas cadastrados no sistema; lucro bruto = venda − custo de importação.",
+    observacao: "Lucro bruto = venda − custo de importação. Resultado líquido = lucro bruto − gastos lançados − perdas (saídas sem venda pelo custo). Não há tributos, tarifas automáticas nem contas a pagar cadastrados.",
   };
 }
 export function giroPorModelo(state, { dias = 90, agora = new Date() } = {}) {
@@ -181,8 +200,8 @@ export function inconsistencias(state) {
     if (!c.rows || !c.rows.length) probs.push({ tipo: "compra_sem_itens", ref: c.id, detalhe: `Compra "${c.nome}" sem aparelhos.` });
     (c.rows || []).forEach((r) => {
       if (!(numOr(r.preco, 0) > 0)) probs.push({ tipo: "lance_zerado", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}" na compra "${c.nome}" com lance zero.` });
-      const sold = soldQty(state, c.id, r.id);
-      if (sold > numOr(r.qty, 0)) probs.push({ tipo: "estoque_negativo", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}": ${sold} vendidos de ${r.qty} comprados.` });
+      const sold = soldQty(state, c.id, r.id) + lostQty(state, c.id, r.id);
+      if (sold > numOr(r.qty, 0)) probs.push({ tipo: "estoque_negativo", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}": ${sold} vendidos/baixados de ${r.qty} comprados.` });
       if (!precoEntrada(state, r.modelo)) probs.push({ tipo: "modelo_sem_preco", ref: c.id + "|" + r.id, detalhe: `"${r.modelo}" não tem preço na lista de venda.` });
     });
   });
@@ -215,6 +234,7 @@ export function normalizarEstado(d) {
   d = d || {};
   return { settings: { ...DEFAULT_SETTINGS, ...(d.settings || {}) }, draft: d.draft || null, vendaDraft: d.vendaDraft || null, filtro: d.filtro || null, calc: d.calc || null,
     precos: Array.isArray(d.precos) ? d.precos : [], compras: Array.isArray(d.compras) ? d.compras : [], vendas: Array.isArray(d.vendas) ? d.vendas : [], clientes: Array.isArray(d.clientes) ? d.clientes : [],
+    perdas: Array.isArray(d.perdas) ? d.perdas : [], gastos: Array.isArray(d.gastos) ? d.gastos : [],
     ultimoBackup: d.ultimoBackup || null, updatedAt: numOr(d.updatedAt, 0) };
 }
 export async function carregarEstado(st = store()) {
