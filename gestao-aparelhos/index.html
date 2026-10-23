@@ -678,7 +678,7 @@
         <button class="tab" type="button" data-tab="estoque">Estoque <span class="pill" id="pillEstoque">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
         <button class="tab" type="button" data-tab="gastos">Gastos</button>
-        <button class="tab" type="button" data-tab="clientes">Clientes <span class="pill" id="pillClientes">0</span></button>
+        <button class="tab" type="button" data-tab="cadastros">Cadastros <span class="pill" id="pillClientes">0</span></button>
         <button class="tab" type="button" data-tab="central">Central <span class="pill" id="pillCentral" hidden>0</span></button>
         <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
       </nav>
@@ -784,34 +784,9 @@
           <span class="spacer"></span>
           <button class="btn ghost danger" type="button" id="btnCalcLimpar">Limpar análise</button>
         </div>
-        <p class="hint"><b>Lance máx.</b> é o maior lance que ainda atinge o lucro desejado. O preço de venda vem da lista e pode ser alterado na própria linha; apague o campo para voltar ao valor da lista.</p>
+        <p class="hint"><b>Lance máx.</b> é o maior lance que ainda atinge o lucro desejado. O preço de venda vem da lista de <b>Cadastros → Aparelhos e preços</b> e pode ser alterado na própria linha; apague o campo para voltar ao valor da lista.</p>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2>Lista de preços de venda</h2>
-          <span class="badge neutral" id="precosCount">0 modelos</span>
-        </div>
-        <div class="table-scroll">
-          <table class="compact">
-            <thead><tr><th>Modelo</th><th class="num">Venda (R$)</th><th></th></tr></thead>
-            <tbody id="precosRows"></tbody>
-          </table>
-        </div>
-        <button class="btn dashed" id="addPreco" type="button">+ adicionar modelo</button>
-        <div style="height:14px"></div>
-        <div class="field">
-          <label for="precosPaste">Colar lista de preços (uma linha por modelo com o preço no fim, ou a lista de WhatsApp inteira)</label>
-          <textarea id="precosPaste" class="paste" placeholder="iPhone 13 128GB  1650&#10;iPhone 14 Pro 128GB  2600"></textarea>
-        </div>
-        <div class="actions" style="margin-top:10px">
-          <button class="btn" type="button" id="btnPrecosImportar">Importar linhas</button>
-          <button class="btn" type="button" id="btnPrecosBase">Completar com o catálogo (iPhone 11 ao 17, sem Mini)</button><span id="precosBaseData" hidden></span>
-          <span class="spacer"></span>
-          <button class="btn ghost danger" type="button" id="btnPrecosLimpar">Apagar lista</button>
-        </div>
-        <p class="hint">A lista fica sempre em ordem de modelo e capacidade. Modelos com preço 0 aparecem como "sem preço" e não entram nos cálculos até você preencher. A caixa acima também aceita a lista de WhatsApp colada inteira (cabeçalho do modelo e linhas de cor com preço): fica o maior valor de cada modelo.</p>
-      </div>
     </section>
 
     <!-- ================= NOVA COMPRA ================= -->
@@ -1001,7 +976,7 @@
         <h2>Entrada direta no estoque</h2>
         <p class="page-intro" style="margin-bottom:12px">Para aparelho comprado fora do leilão ou já em mãos: informe o que pagou por unidade e pronto. Compras de leilão continuam em Nova compra, com o cálculo de frete e nota.</p>
         <div class="grid">
-          <div class="field" style="grid-column: span 2"><label for="entModelo">Modelo</label><input type="text" id="entModelo" list="modelosDatalist" autocomplete="off" placeholder="escolha ou digite o modelo"></div>
+          <div class="field" style="grid-column: span 2"><label for="entModeloSel">Modelo</label><div class="cell-stack" style="max-width:none"><select id="entModeloSel" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select><input type="text" id="entModelo" autocomplete="off" placeholder="digite o modelo" hidden></div></div>
           <div class="field"><label for="entQty">Quantidade</label><input type="number" id="entQty" min="1" step="1" value="1"></div>
           <div class="field"><label for="entCusto">Pago por aparelho</label><div class="input-group"><span>R$</span><input type="number" id="entCusto" step="0.01" min="0" placeholder="0,00"></div></div>
           <div class="field"><label for="entData">Data</label><input type="date" id="entData"></div>
@@ -1071,7 +1046,10 @@
         <div class="grid two">
           <div class="field">
             <label for="vendaCliente">Cliente</label>
-            <input type="text" id="vendaCliente" list="clientesDatalist" placeholder="nome do cliente (novo ou já cadastrado)" autocomplete="off">
+            <div class="cell-stack" style="max-width:none;min-width:0">
+              <select id="vendaClienteSel" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:9px 10px;font-size:0.95rem"></select>
+              <input type="text" id="vendaCliente" placeholder="nome do cliente novo" autocomplete="off" hidden>
+            </div>
             <datalist id="clientesDatalist"></datalist>
           </div>
           <div class="field">
@@ -1174,9 +1152,43 @@
       </div>
     </section>
 
-    <!-- ================= CLIENTES ================= -->
-    <section id="tab-clientes" class="tabpanel">
-      <h1 class="page-title">Clientes</h1>
+
+
+    <!-- ================= CADASTROS ================= -->
+    <section id="tab-cadastros" class="tabpanel">
+      <h1 class="page-title">Cadastros</h1>
+      <p class="page-intro">Aparelhos com preço de venda e clientes, num lugar só. Tudo aqui vale para todas as abas e sincroniza na nuvem.</p>
+      <div class="chips" style="margin-bottom:14px"><button class="chip active" type="button" data-cad="aparelhos">Aparelhos e preços</button><button class="chip" type="button" data-cad="clientes">Clientes <span id="pillClientes2"></span></button></div>
+      <div id="cadAparelhos">
+      <div class="card">
+        <div class="card-head">
+          <h2>Aparelhos e preços de venda</h2>
+          <span class="badge neutral" id="precosCount">0 modelos</span>
+        </div>
+        <div class="table-scroll">
+          <table class="compact">
+            <thead><tr><th>Modelo</th><th class="num">Venda (R$)</th><th></th></tr></thead>
+            <tbody id="precosRows"></tbody>
+          </table>
+        </div>
+        <button class="btn dashed" id="addPreco" type="button">+ adicionar modelo</button>
+        <div style="height:14px"></div>
+        <div class="field">
+          <label for="precosPaste">Colar lista de preços (uma linha por modelo com o preço no fim, ou a lista de WhatsApp inteira)</label>
+          <textarea id="precosPaste" class="paste" placeholder="iPhone 13 128GB  1650&#10;iPhone 14 Pro 128GB  2600"></textarea>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button class="btn" type="button" id="btnPrecosImportar">Importar linhas</button>
+          <button class="btn" type="button" id="btnPrecosBase">Completar com o catálogo (iPhone 11 ao 17, sem Mini)</button><span id="precosBaseData" hidden></span>
+          <span class="spacer"></span>
+          <button class="btn ghost danger" type="button" id="btnPrecosLimpar">Apagar lista</button>
+        </div>
+        <p class="hint">A lista fica sempre em ordem de modelo e capacidade. Modelos com preço 0 aparecem como "sem preço" e não entram nos cálculos até você preencher. A caixa acima também aceita a lista de WhatsApp colada inteira (cabeçalho do modelo e linhas de cor com preço): fica o maior valor de cada modelo.</p>
+      </div>
+
+      </div>
+      <div id="cadClientes" hidden>
+
       <div class="card">
         <div class="card-head">
           <h2 id="clienteFormTitle">Novo cliente</h2>
@@ -1202,6 +1214,8 @@
         </div>
       </div>
       <div id="clientesList"></div>
+
+      </div>
     </section>
 
     <!-- ================= CENTRAL DE INTELIGÊNCIA ================= -->
@@ -1587,12 +1601,17 @@
 
   /* ---------------- tabs ---------------- */
   function showTab(name) {
+    if (name === "clientes") { name = "cadastros"; document.querySelector('[data-cad="clientes"]').click(); }
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll(".tabpanel").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
     try { localStorage.setItem(UI_KEY, name); } catch (e) { /* ignore */ }
     window.scrollTo({ top: 0 });
   }
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  document.querySelectorAll("[data-cad]").forEach((c) => c.addEventListener("click", () => {
+    document.querySelectorAll("[data-cad]").forEach((x) => x.classList.toggle("active", x === c));
+    $("cadAparelhos").hidden = c.dataset.cad !== "aparelhos"; $("cadClientes").hidden = c.dataset.cad !== "clientes";
+  }));
 
   /* ================= NOVA COMPRA ================= */
   const settingsEls = { taxaFixa: $("taxaFixa"), notaPct: $("notaPct"), frete1: $("frete1"), frete2: $("frete2"), cotacao: $("cotacao"), empresa: $("empresa"), contato: $("contato"), responsavel: $("responsavel"), garantia: $("garantia") };
@@ -1642,7 +1661,7 @@
       const c = calcRow(row, s);
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><input type="text" list="modelosDatalist" autocomplete="off" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="escolha ou digite o modelo"></td>
+        <td><div class="cell-stack">${modeloSelect(row.modelo, idx)}<input type="text" autocomplete="off" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="digite o modelo" ${modeloNaLista(row.modelo) || !row.modelo ? "hidden" : ""}></div></td>
         <td class="num">${c.direto ? `<span class="muted" title="Entrada direta: custo informado em R$">direto</span>` : `<input type="number" step="0.01" min="0" data-idx="${idx}" data-field="preco" value="${row.preco ?? ""}" placeholder="0">`}</td>
         <td class="num"><input type="number" step="1" min="1" data-idx="${idx}" data-field="qty" value="${row.qty ?? 1}"></td>
         <td class="num"><input type="number" step="1" min="0" max="100" data-idx="${idx}" data-field="notaPct" value="${row.notaPct ?? ""}" placeholder="${esc(s.notaPct)}"></td>
@@ -1657,6 +1676,13 @@
       tbody.appendChild(tr);
     });
     tbody.querySelectorAll("input").forEach((input) => input.addEventListener("input", onRowInput));
+    tbody.querySelectorAll('select[data-field="modeloSel"]').forEach((sel) => sel.addEventListener("change", (e) => {
+      const idx = Number(e.target.dataset.idx); const row = state.draft.rows[idx]; if (!row) return;
+      const inp = e.target.parentElement.querySelector('input[data-field="modelo"]');
+      if (e.target.value === "__outro__") { row.modelo = ""; inp.hidden = false; inp.value = ""; inp.focus(); }
+      else { row.modelo = e.target.value; inp.hidden = true; inp.value = row.modelo; }
+      save(); onRowInput({ target: inp });
+    }));
     tbody.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => {
       state.draft.rows.splice(Number(btn.dataset.remove), 1);
       if (!state.draft.rows.length) state.draft.rows.push(newRow());
@@ -2060,6 +2086,17 @@
   });
 
   /* ---- lista de preços ---- */
+  function modelosCadastrados() {
+    const seen = new Set(); const out = [];
+    const add = (m) => { const k = String(m || "").trim(); if (k && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); out.push(k); } };
+    state.precos.forEach((p) => add(p.modelo)); state.compras.forEach((c) => c.rows.forEach((r) => add(r.modelo)));
+    return out.sort((a, b) => { const x = chaveModelo(a), y = chaveModelo(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return x[3].localeCompare(y[3]); });
+  }
+  const modeloNaLista = (m) => !!m && modelosCadastrados().some((x) => x.toLowerCase() === String(m).trim().toLowerCase());
+  function modeloSelect(atual, idx) {
+    const lista = modelosCadastrados(); const a = String(atual || "").trim().toLowerCase();
+    return `<select data-field="modeloSel" data-idx="${idx}"><option value="">— escolher aparelho —</option>${lista.map((m) => `<option value="${esc(m)}" ${m.toLowerCase() === a ? "selected" : ""}>${esc(m)}</option>`).join("")}<option value="__outro__" ${atual && !modeloNaLista(atual) ? "selected" : ""}>+ Outro (digitar)</option></select>`;
+  }
   function renderModelosDatalist() {
     const seen = new Set(); const out = [];
     const add = (m) => { const k = String(m || "").trim(); if (k && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); out.push(k); } };
@@ -2346,16 +2383,23 @@
     state.compras.unshift({ id: uid(), nome, data, settings: snap, rows: [{ id: uid(), modelo, preco: 0, custoBRL: custo, notaPct: null, qty }], criadoEm: Date.now(), origem: "direta" });
     const v = precoTabela(modelo);
     $("entStatus").innerHTML = `Adicionado: ${qty} × ${esc(modelo)} a ${fmtBRL(custo)}.` + (v !== null ? ` Venda pela lista: ${fmtBRL(v)}, margem ${fmtPct((v - custo) / v * 100)}.` : " Este modelo não tem preço na lista.");
-    $("entModelo").value = ""; $("entQty").value = 1; $("entCusto").value = ""; $("entOrigem").value = "";
+    $("entModelo").value = ""; $("entModelo").hidden = true; $("entModeloSel").value = ""; $("entQty").value = 1; $("entCusto").value = ""; $("entOrigem").value = "";
     save(); renderAll(); toast("Aparelho no estoque. Já aparece em Nova venda.");
   });
   if (!$("entData").value) $("entData").value = todayISO();
+  function renderEntradaSelect() {
+    const sel = $("entModeloSel"); const atual = sel.value;
+    const lista = modelosCadastrados();
+    sel.innerHTML = `<option value="">— escolher aparelho —</option>` + lista.map((m) => `<option value="${esc(m)}" ${m === atual ? "selected" : ""}>${esc(m)}</option>`).join("") + `<option value="__outro__" ${atual === "__outro__" ? "selected" : ""}>+ Outro (digitar)</option>`;
+  }
+  $("entModeloSel").addEventListener("change", (e) => { if (e.target.value === "__outro__") { $("entModelo").hidden = false; $("entModelo").value = ""; $("entModelo").focus(); } else { $("entModelo").hidden = true; $("entModelo").value = e.target.value; } });
 
   /* ---- perdas / saídas sem venda ---- */
   const perdaCusto = (p) => itemCusto({ compraId: p.compraId, rowId: p.rowId, custoBRL: p.custoBRL });
   const perdasCustoTotal = () => (state.perdas || []).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
   function perdasPeriodo(f) { const r = periodoRange(f); return (state.perdas || []).filter((p) => !r || (p.data >= r[0] && p.data <= r[1])); }
   function renderPerdaForm() {
+    renderEntradaSelect();
     const sel = $("perdaItem"); const atual = sel.value;
     const stock = stockList().filter((x) => x.avail > 0);
     sel.innerHTML = stock.length ? `<option value="">— escolher —</option>` + stock.map((x) => `<option value="${x.key}" ${x.key === atual ? "selected" : ""}>${esc(x.modelo)} · ${esc(x.compraNome)} · ${x.avail} disp. · custo ${fmtBRL(x.custoBRL)}</option>`).join("") : `<option value="">— sem aparelhos em estoque —</option>`;
@@ -2411,11 +2455,22 @@
 
   /* ================= VENDAS ================= */
   function renderVendaDraftHead() {
-    $("vendaCliente").value = state.vendaDraft.cliente || "";
+    const nome = (state.vendaDraft.cliente || "").trim();
+    const sorted = [...state.clientes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const existe = sorted.find((c) => c.nome.trim().toLowerCase() === nome.toLowerCase());
+    const novo = !!nome && !existe;
+    $("vendaClienteSel").innerHTML = `<option value="">— escolher cliente —</option>` + sorted.map((c) => `<option value="${esc(c.nome)}" ${existe && existe.id === c.id ? "selected" : ""}>${esc(c.nome)}${c.telefone ? " · " + esc(c.telefone) : ""}</option>`).join("") + `<option value="__novo__" ${novo ? "selected" : ""}>+ Novo cliente (digitar)</option>`;
+    $("vendaCliente").hidden = !novo;
+    $("vendaCliente").value = novo ? nome : "";
     $("vendaData").value = state.vendaDraft.data || todayISO();
     $("clientesDatalist").innerHTML = state.clientes.map((c) => `<option value="${esc(c.nome)}"></option>`).join("");
   }
   $("vendaCliente").addEventListener("input", (e) => { state.vendaDraft.cliente = e.target.value; save(); });
+  $("vendaClienteSel").addEventListener("change", (e) => {
+    if (e.target.value === "__novo__") { state.vendaDraft.cliente = ""; $("vendaCliente").hidden = false; $("vendaCliente").value = ""; $("vendaCliente").focus(); }
+    else { state.vendaDraft.cliente = e.target.value; $("vendaCliente").hidden = true; $("vendaCliente").value = ""; }
+    save();
+  });
   $("vendaData").addEventListener("input", (e) => { state.vendaDraft.data = e.target.value; save(); });
 
   const MODIFIERS = ["pro", "max", "plus", "mini"];
@@ -2897,7 +2952,7 @@
 
   function renderClientes() {
     const list = $("clientesList");
-    $("pillClientes").textContent = state.clientes.length;
+    $("pillClientes").textContent = state.clientes.length; $("pillClientes2").textContent = state.clientes.length ? "(" + state.clientes.length + ")" : "";
     if (!state.clientes.length) {
       list.innerHTML = `<div class="empty"><b>Nenhum cliente cadastrado.</b><br>Cadastre acima ou registre uma venda: o cliente é criado automaticamente.</div>`;
       return;
@@ -3440,7 +3495,7 @@
   load();
   renderAll();
   renderSyncForm();
-  try { const t = localStorage.getItem(UI_KEY); if (t && $("tab-" + t)) showTab(t); } catch (e) { /* ignore */ }
+  try { let t = localStorage.getItem(UI_KEY); if (t === "clientes") t = "cadastros"; if (t && $("tab-" + t)) showTab(t); } catch (e) { /* ignore */ }
   if (syncAvailable && !sync.key) showLogin();
   else runSync(syncPull);
 })();
