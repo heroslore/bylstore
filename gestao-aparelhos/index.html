@@ -678,6 +678,7 @@
         <button class="tab" type="button" data-tab="estoque">Estoque <span class="pill" id="pillEstoque">0</span></button>
         <button class="tab" type="button" data-tab="vendas">Vendas <span class="pill" id="pillVendas">0</span></button>
         <button class="tab" type="button" data-tab="gastos">Gastos</button>
+        <button class="tab" type="button" data-tab="analise">Análise</button>
         <button class="tab" type="button" data-tab="cadastros">Cadastros <span class="pill" id="pillClientes">0</span></button>
         <button class="tab" type="button" data-tab="central">Central <span class="pill" id="pillCentral" hidden>0</span></button>
         <button class="tab" type="button" data-tab="ajustes">Ajustes</button>
@@ -1167,6 +1168,39 @@
 
 
     <!-- ================= CADASTROS ================= -->
+    <section id="tab-analise" class="tabpanel">
+      <h1 class="page-title">Análise</h1>
+      <p class="muted" style="margin:-6px 0 12px;font-size:0.9rem">Médias e custos logísticos das compras. O período é pela data da compra.</p>
+      <div class="filter-bar">
+        <div class="chips" id="anChips" role="group" aria-label="Período">
+          <button class="chip" type="button" data-aper="mes">Este mês</button>
+          <button class="chip" type="button" data-aper="mesAnterior">Mês passado</button>
+          <button class="chip" type="button" data-aper="ano">Este ano</button>
+          <button class="chip" type="button" data-aper="tudo">Tudo</button>
+          <button class="chip" type="button" data-aper="custom">Personalizado</button>
+        </div>
+        <div class="filter-range" id="anRange" hidden>
+          <label for="anDe">de</label><input type="date" id="anDe">
+          <label for="anAte">até</label><input type="date" id="anAte">
+        </div>
+        <label class="toggle-row" style="margin:0;gap:6px;font-size:0.85rem"><input type="checkbox" id="anTransito" checked> incluir em trânsito</label>
+      </div>
+      <h2 style="margin:16px 0 8px">Preços médios</h2>
+      <div class="stats" id="anMedias"></div>
+      <h2 style="margin:20px 0 8px">Logística e taxas</h2>
+      <div class="stats" id="anLogistica"></div>
+      <div style="height:16px"></div>
+      <div class="card">
+        <h2>Por modelo</h2>
+        <p class="muted" style="font-size:0.85rem;margin-top:-4px">Lance e custo médios do que você comprou no período, comparados com a lista de preços.</p>
+        <div class="table-wrap" id="anModelos"></div>
+      </div>
+      <div class="card">
+        <h2>Por compra</h2>
+        <div class="table-wrap" id="anCompras"></div>
+      </div>
+    </section>
+
     <section id="tab-cadastros" class="tabpanel">
       <h1 class="page-title">Cadastros</h1>
       <p class="page-intro">Aparelhos com preço de venda e clientes, num lugar só. Tudo aqui vale para todas as abas e sincroniza na nuvem.</p>
@@ -2956,6 +2990,61 @@
     $("gastosList").innerHTML = lista.length ? `<table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Compra</th><th class="num">Valor</th><th></th></tr></thead><tbody>${lista.map((g) => { const c = state.compras.find((x) => x.id === g.compraId); return `<tr><td>${fmtDate(g.data)}</td><td>${esc(CATEGORIAS_GASTO[g.categoria] || g.categoria)}</td><td style="white-space:normal">${esc(g.descricao) || "—"}</td><td class="muted">${c ? esc(c.nome) : "—"}</td><td class="num neg">${fmtBRL(g.valor)}</td><td><button class="icon-btn" type="button" data-delgasto="${g.id}" aria-label="Excluir" title="Excluir">✕</button></td></tr>`; }).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhum gasto no período.</div>`;
     $("gastosList").querySelectorAll("[data-delgasto]").forEach((b) => b.addEventListener("click", () => { if (!confirm("Excluir este gasto?")) return; state.gastos = state.gastos.filter((x) => x.id !== b.dataset.delgasto); save(); renderAll(); }));
   }
+  /* ================= ANÁLISE ================= */
+  let aFiltro = { periodo: "tudo", de: "", ate: "", transito: true };
+  function renderAnalise() {
+    document.querySelectorAll("#anChips .chip").forEach((c) => c.classList.toggle("active", c.dataset.aper === aFiltro.periodo));
+    $("anRange").hidden = aFiltro.periodo !== "custom";
+    const r = periodoRange(aFiltro);
+    const compras = state.compras.filter((c) => (!r || (c.data >= r[0] && c.data <= r[1])) && (aFiltro.transito || !emTransito(c)));
+    // acumuladores (lance/nota só contam linhas de leilão; entrada direta não tem lance nem nota)
+    const A = { compras: compras.length, qty: 0, qtyLeilao: 0, lance: 0, nota: 0, f1: 0, f2: 0, taxa: 0, f1BRL: 0, f2BRL: 0, taxaBRL: 0, entrega: 0, brl: 0, direta: 0 };
+    const porModelo = {}; const porCompra = [];
+    compras.forEach((c) => {
+      const cot = numOr(c.settings.cotacao, 0); const eu = entregaUnit(c);
+      const pc = { c, qty: 0, lance: 0, nota: 0, f1: 0, f2: 0, entrega: numOr(c.custoEntrega, 0), brl: 0, qtyLeilao: 0 };
+      c.rows.forEach((row) => {
+        const k = calcRow(row, c.settings, eu);
+        A.qty += k.qty; A.brl += k.lBRL; pc.qty += k.qty; pc.brl += k.lBRL;
+        if (k.direto) { A.direta += k.qty; } else {
+          A.qtyLeilao += k.qty; pc.qtyLeilao += k.qty; A.lance += k.lPreco; A.nota += k.lNota; A.f1 += k.lF1; A.f2 += k.lF2; A.taxa += k.lTaxa;
+          A.f1BRL += k.lF1 * cot; A.f2BRL += k.lF2 * cot; A.taxaBRL += k.lTaxa * cot;
+          pc.lance += k.lPreco; pc.nota += k.lNota; pc.f1 += k.lF1; pc.f2 += k.lF2;
+        }
+        const key = chaveModelo(row.modelo) || row.modelo || "?";
+        const m = porModelo[key] || (porModelo[key] = { modelo: row.modelo, qty: 0, qtyLeilao: 0, lance: 0, nota: 0, brl: 0 });
+        m.qty += k.qty; m.brl += k.lBRL; if (!k.direto) { m.qtyLeilao += k.qty; m.lance += k.lPreco; m.nota += k.lNota; }
+      });
+      A.entrega += pc.entrega; porCompra.push(pc);
+    });
+    const med = (tot, n) => n ? tot / n : null;
+    const fmtOr = (fn, v) => v === null ? "—" : fn(v);
+    const notaPctMed = A.lance > 0 ? A.nota / A.lance * 100 : null;
+    $("anMedias").innerHTML = `
+      <div class="tile amber"><div class="label">Preço médio por compra</div><div class="value">${fmtOr(fmtBRL, med(A.brl, A.compras))}</div><div class="sub">${A.compras} compra(s) · ${fmtBRL(A.brl)} no total</div></div>
+      <div class="tile amber"><div class="label">Custo médio por aparelho</div><div class="value">${fmtOr(fmtBRL, med(A.brl, A.qty))}</div><div class="sub">${A.qty} aparelho(s)${A.direta ? " · " + A.direta + " de entrada direta" : ""}</div></div>
+      <div class="tile"><div class="label">Lance médio</div><div class="value">${fmtOr(fmtUSD, med(A.lance, A.qtyLeilao))}</div><div class="sub">${A.qtyLeilao} aparelho(s) de leilão · ${fmtUSD(A.lance)} no total</div></div>
+      <div class="tile"><div class="label">Nota declarada média</div><div class="value">${fmtOr(fmtUSD, med(A.nota, A.qtyLeilao))}</div><div class="sub">${notaPctMed === null ? "—" : fmtPct(notaPctMed) + " do lance em média"} · ${fmtUSD(A.nota)} no total</div></div>`;
+    const logTotalBRL = A.f1BRL + A.f2BRL + A.entrega;
+    $("anLogistica").innerHTML = `
+      <div class="tile"><div class="label">Frete Miami → PY</div><div class="value">${fmtUSD(A.f1)}</div><div class="sub">${fmtBRL(A.f1BRL)} · ${fmtOr(fmtUSD, med(A.f1, A.qtyLeilao))} por aparelho</div></div>
+      <div class="tile"><div class="label">Frete PY → SP</div><div class="value">${fmtUSD(A.f2)}</div><div class="sub">${fmtBRL(A.f2BRL)} · ${fmtOr(fmtUSD, med(A.f2, A.qtyLeilao))} por aparelho</div></div>
+      <div class="tile"><div class="label">Entrega SP → Bahia</div><div class="value">${fmtBRL(A.entrega)}</div><div class="sub">${fmtOr(fmtBRL, med(A.entrega, A.qty))} por aparelho</div></div>
+      <div class="tile"><div class="label">Taxa fixa</div><div class="value">${fmtUSD(A.taxa)}</div><div class="sub">${fmtBRL(A.taxaBRL)} · US$ ${A.qtyLeilao ? (A.taxa / A.qtyLeilao).toFixed(0) : "—"} por aparelho</div></div>
+      <div class="tile amber"><div class="label">Logística total</div><div class="value">${fmtBRL(logTotalBRL)}</div><div class="sub">${A.brl > 0 ? fmtPct(logTotalBRL / A.brl * 100) + " do custo final" : "—"} · ${fmtOr(fmtBRL, med(logTotalBRL, A.qty))} por aparelho</div></div>`;
+    const modelos = Object.values(porModelo).sort((a, b) => b.qty - a.qty || a.modelo.localeCompare(b.modelo, "pt-BR"));
+    $("anModelos").innerHTML = modelos.length ? `<table><thead><tr><th>Modelo</th><th class="num">Qtd</th><th class="num">Lance médio</th><th class="num">Nota média</th><th class="num">Custo médio R$</th><th class="num">Lista</th><th class="num">Margem</th></tr></thead><tbody>${modelos.map((m) => {
+      const custo = m.brl / m.qty; const lista = precoTabela(m.modelo); const mg = lista ? (lista - custo) / lista * 100 : null;
+      return `<tr><td>${esc(m.modelo)}</td><td class="num">${m.qty}</td><td class="num">${fmtOr(fmtUSD, med(m.lance, m.qtyLeilao))}</td><td class="num">${fmtOr(fmtUSD, med(m.nota, m.qtyLeilao))}</td><td class="num"><b>${fmtBRL(custo)}</b></td><td class="num">${lista ? fmtBRL(lista) : "—"}</td><td class="num ${mg !== null && mg < 0 ? "neg" : ""}">${fmtOr(fmtPct, mg)}</td></tr>`;
+    }).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhuma compra no período.</div>`;
+    porCompra.sort((a, b) => b.c.data.localeCompare(a.c.data));
+    $("anCompras").innerHTML = porCompra.length ? `<table><thead><tr><th>Compra</th><th>Data</th><th class="num">Qtd</th><th class="num">Lance médio</th><th class="num">Nota média</th><th class="num">Frete MIA→PY</th><th class="num">Frete PY→SP</th><th class="num">SP→BA</th><th class="num">Custo/ap.</th><th class="num">Total R$</th></tr></thead><tbody>${porCompra.map((p) => `<tr><td>${esc(p.c.nome)}${emTransito(p.c) ? ' <span class="badge">trânsito</span>' : ""}</td><td>${fmtDate(p.c.data)}</td><td class="num">${p.qty}</td><td class="num">${fmtOr(fmtUSD, med(p.lance, p.qtyLeilao))}</td><td class="num">${fmtOr(fmtUSD, med(p.nota, p.qtyLeilao))}</td><td class="num">${fmtUSD(p.f1)}</td><td class="num">${fmtUSD(p.f2)}</td><td class="num">${p.entrega > 0 ? fmtBRL(p.entrega) : "—"}</td><td class="num">${fmtBRL(p.brl / p.qty)}</td><td class="num"><b>${fmtBRL(p.brl)}</b></td></tr>`).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhuma compra no período.</div>`;
+  }
+  document.querySelectorAll("#anChips .chip").forEach((c) => c.addEventListener("click", () => { aFiltro.periodo = c.dataset.aper; renderAnalise(); }));
+  $("anDe").addEventListener("input", (e) => { aFiltro.de = e.target.value; renderAnalise(); });
+  $("anAte").addEventListener("input", (e) => { aFiltro.ate = e.target.value; renderAnalise(); });
+  $("anTransito").addEventListener("change", (e) => { aFiltro.transito = e.target.checked; renderAnalise(); });
+
   document.querySelectorAll("#gastosChips .chip").forEach((c) => c.addEventListener("click", () => { gFiltro.periodo = c.dataset.gper; renderGastos(); }));
   $("gastosDe").addEventListener("input", (e) => { gFiltro.de = e.target.value; renderGastos(); });
   $("gastosAte").addEventListener("input", (e) => { gFiltro.ate = e.target.value; renderGastos(); });
@@ -3533,6 +3622,7 @@
     renderCompras();
     renderEstoque();
     renderGastos();
+    renderAnalise();
     renderVendaDraftHead();
     renderVendaRows();
     renderFiltro();
