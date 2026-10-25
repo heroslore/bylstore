@@ -2981,13 +2981,28 @@
     const porCat = {}; lista.forEach((g) => { porCat[g.categoria] = (porCat[g.categoria] || 0) + numOr(g.valor, 0); });
     const topCat = Object.entries(porCat).sort((a, b) => b[1] - a[1]).slice(0, 3);
     const perdas = perdasPeriodo(gFiltro).reduce((a, p) => a + perdaCusto(p) * numOr(p.qty, 0), 0);
+    // Entrega SP → Bahia: vem das compras. Já está dentro do custo de cada aparelho, então aparece aqui só para você ver o total, sem descontar de novo.
+    const rg = periodoRange(gFiltro);
+    const entregas = state.compras.filter((c) => numOr(c.custoEntrega, 0) > 0 && (!rg || (c.data >= rg[0] && c.data <= rg[1])) && (!gFiltro.compraId || c.id === gFiltro.compraId));
+    const entregaTotal = entregas.reduce((a, c) => a + numOr(c.custoEntrega, 0), 0);
     $("gastosStats").innerHTML = `
       <div class="tile danger"><div class="label">Gastos</div><div class="value">${fmtBRL(total)}</div><div class="sub">${lista.length} lançamento(s) · ${periodoLabel(gFiltro)}</div></div>
       <div class="tile"><div class="label">Por categoria</div><div class="value" style="font-size:0.95rem;line-height:1.5">${topCat.map(([k, v]) => esc(CATEGORIAS_GASTO[k] || k) + ": " + fmtBRL(v)).join("<br>") || "—"}</div></div>
+      <div class="tile"><div class="label">Entrega SP → Bahia</div><div class="value">${fmtBRL(entregaTotal)}</div><div class="sub">${entregas.length} compra(s) · já dentro do custo dos aparelhos</div></div>
       <div class="tile"><div class="label">Perdas no período</div><div class="value">${fmtBRL(perdas)}</div><div class="sub">saídas sem venda, pelo custo</div></div>
       <div class="tile amber"><div class="label">Gastos + perdas</div><div class="value">${fmtBRL(total + perdas)}</div><div class="sub">o que sai do lucro bruto</div></div>`;
     $("gastosTotalBadge").textContent = fmtBRL(total);
-    $("gastosList").innerHTML = lista.length ? `<table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Compra</th><th class="num">Valor</th><th></th></tr></thead><tbody>${lista.map((g) => { const c = state.compras.find((x) => x.id === g.compraId); return `<tr><td>${fmtDate(g.data)}</td><td>${esc(CATEGORIAS_GASTO[g.categoria] || g.categoria)}</td><td style="white-space:normal">${esc(g.descricao) || "—"}</td><td class="muted">${c ? esc(c.nome) : "—"}</td><td class="num neg">${fmtBRL(g.valor)}</td><td><button class="icon-btn" type="button" data-delgasto="${g.id}" aria-label="Excluir" title="Excluir">✕</button></td></tr>`; }).join("")}</tbody></table>` : `<div class="muted" style="font-size:0.85rem">Nenhum gasto no período.</div>`;
+    const linhas = [
+      ...lista.map((g) => ({ data: g.data, ord: 1, html: (() => { const c = state.compras.find((x) => x.id === g.compraId); return `<tr><td>${fmtDate(g.data)}</td><td>${esc(CATEGORIAS_GASTO[g.categoria] || g.categoria)}</td><td style="white-space:normal">${esc(g.descricao) || "—"}</td><td class="muted">${c ? esc(c.nome) : "—"}</td><td class="num neg">${fmtBRL(g.valor)}</td><td><button class="icon-btn" type="button" data-delgasto="${g.id}" aria-label="Excluir" title="Excluir">✕</button></td></tr>`; })() })),
+      ...entregas.map((c) => ({ data: c.data, ord: 0, html: `<tr class="muted"><td>${fmtDate(c.data)}</td><td>Entrega SP → Bahia</td><td style="white-space:normal">${fmtBRL(entregaUnit(c))} por aparelho · <span class="badge">já no custo do aparelho</span></td><td class="muted">${esc(c.nome)}${emTransito(c) ? " (trânsito)" : ""}</td><td class="num">${fmtBRL(c.custoEntrega)}</td><td><button class="icon-btn" type="button" data-entrega-gasto="${c.id}" aria-label="Alterar" title="Alterar na compra">✎</button></td></tr>` })),
+    ].sort((a, b) => b.data.localeCompare(a.data) || a.ord - b.ord);
+    $("gastosList").innerHTML = linhas.length ? `<table><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Compra</th><th class="num">Valor</th><th></th></tr></thead><tbody>${linhas.map((l) => l.html).join("")}</tbody></table>${entregas.length ? `<div class="muted" style="font-size:0.8rem;margin-top:8px">As linhas de entrega SP → Bahia vêm das compras e já estão somadas ao custo de cada aparelho. Elas não entram no total de gastos para não descontar o mesmo valor duas vezes.</div>` : ""}` : `<div class="muted" style="font-size:0.85rem">Nenhum gasto no período.</div>`;
+    $("gastosList").querySelectorAll("[data-entrega-gasto]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.entregaGasto); if (!c) return;
+      const v = prompt(`Custo da entrega de "${c.nome}" até a Bahia (R$ total). Zero remove.`, String(c.custoEntrega));
+      if (v === null) return;
+      const n = numOr(String(v).replace(",", "."), 0); c.custoEntrega = n > 0 ? n : 0; save(); renderAll();
+    }));
     $("gastosList").querySelectorAll("[data-delgasto]").forEach((b) => b.addEventListener("click", () => { if (!confirm("Excluir este gasto?")) return; state.gastos = state.gastos.filter((x) => x.id !== b.dataset.delgasto); save(); renderAll(); }));
   }
   /* ================= ANÁLISE ================= */
