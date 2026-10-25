@@ -10,6 +10,20 @@ test("cálculo de custo bate com o app (nota 70%, dólar 5,40 e nota 90%, dólar
   assert.equal(D.round2(d.custoBRL), 1469.02);
   assert.equal(D.round2(d.frete1), 15.73); assert.equal(D.round2(d.frete2), 16.78);
 });
+test("entrega SP→Bahia é rateada por aparelho e entra no custo", () => {
+  const s = estadoExemplo();
+  const c2 = s.compras.find((c) => c.id === "c2");
+  c2.custoEntrega = 200; // 4 aparelhos → R$ 50 cada
+  assert.equal(D.entregaUnit(c2), 50);
+  const k = D.stockList(s).find((x) => x.rowId === "r3");
+  assert.equal(D.round2(k.custoBRL), D.round2(1463.09 + 50));
+  const t = D.totaisCompra(s, c2);
+  assert.equal(t.entrega, 200);
+  assert.ok(Math.abs(t.brl - (4 * 1463.09 + 200)) < 0.05);
+  // sem entrega: nada muda
+  c2.custoEntrega = 0;
+  assert.equal(D.round2(D.stockList(s).find((x) => x.rowId === "r3").custoBRL), 1463.09);
+});
 test("compra em trânsito fica fora do estoque até ser recebida", () => {
   const s = estadoExemplo();
   s.compras.push({ id: "c8", nome: "Leilão 25/10", data: "2026-10-25", status: "transito", settings: s.settings, rows: [{ id: "r8", modelo: "iPhone 14 128GB", preco: 253, notaPct: null, qty: 5 }] });

@@ -809,6 +809,13 @@
             <input type="date" id="compraData">
           </div>
         </div>
+        <div class="grid two" style="margin-top:14px">
+          <div class="field">
+            <label for="compraEntrega">Entrega SP → Bahia (R$ total do lote, opcional)</label>
+            <div class="input-group"><span>R$</span><input type="number" id="compraEntrega" step="0.01" min="0" placeholder="pode informar depois, ao receber"></div>
+            <div class="hint">Dividido pelos aparelhos e somado ao custo de cada um. Pode ser preenchido na aba Compras enquanto o lote está em trânsito.</div>
+          </div>
+        </div>
         <div class="toggle-row" style="margin-top:12px">
           <input type="checkbox" id="compraTransito" checked>
           <label for="compraTransito"><b>Em trânsito</b>: ainda não chegou. Fica fora do estoque e das vendas até você marcar como recebida na aba Compras.</label>
@@ -895,6 +902,7 @@
             <div><span>Valor da nota a declarar</span><span id="rsNota">—</span></div>
             <div><span>Frete Miami → PY</span><span id="rsF1">—</span></div>
             <div><span>Frete PY → SP</span><span id="rsF2">—</span></div>
+            <div><span>Entrega SP → Bahia</span><span id="rsEntrega">—</span></div>
             <div class="em"><span>Custo final em US$</span><span id="rsUSD">—</span></div>
           </div>
           <div class="tiles">
@@ -1415,7 +1423,7 @@
   const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cotacao"];
 
   const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
-  const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()], transito: true });
+  const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()], transito: true, custoEntrega: 0 });
   const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [], orcamentoId: null });
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
@@ -1522,12 +1530,14 @@
   const isBlank = (v) => v === null || v === undefined || v === "";
 
   /* ---------------- calculation ---------------- */
-  function calcRow(row, s) {
+  const entregaUnit = (c) => { const tot = numOr(c && c.custoEntrega, 0); if (!(tot > 0)) return 0; const q = (c.rows || []).reduce((a, r) => a + Math.max(1, Math.round(numOr(r.qty, 1))), 0); return q ? tot / q : 0; };
+  function calcRow(row, s, entrega = 0) {
+    const ex = numOr(entrega, 0);
     if (row.custoBRL !== null && row.custoBRL !== undefined && row.custoBRL !== "") {
-      const custoBRL = numOr(row.custoBRL, 0); const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
+      const custoBRL = numOr(row.custoBRL, 0) + ex; const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
       const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
-      return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, custoUSD, custoBRL, qty, direto: true,
-        lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
+      return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, entrega: ex, custoUSD, custoBRL, qty, direto: true,
+        lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lEntrega: ex * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
     }
     const preco = numOr(row.preco, 0);
     const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
@@ -1535,25 +1545,26 @@
     const frete1 = valorNota * numOr(s.frete1, 0) / 100;
     const frete2 = valorNota * numOr(s.frete2, 0) / 100;
     const taxa = numOr(s.taxaFixa, 0);
-    const custoUSD = preco + taxa + frete1 + frete2;
     const cot = numOr(s.cotacao, 0);
-    const custoBRL = custoUSD * cot;
+    const custoUSD = preco + taxa + frete1 + frete2 + (cot > 0 ? ex / cot : 0);
+    const custoBRL = (preco + taxa + frete1 + frete2) * cot + ex;
     const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
     return {
-      preco, notaPct, valorNota, frete1, frete2, taxa, custoUSD, custoBRL, qty,
+      preco, notaPct, valorNota, frete1, frete2, taxa, entrega: ex, custoUSD, custoBRL, qty,
       lPreco: preco * qty, lNota: valorNota * qty, lF1: frete1 * qty, lF2: frete2 * qty,
-      lTaxa: taxa * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty,
+      lTaxa: taxa * qty, lEntrega: ex * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty,
     };
   }
-  function calcTotals(rows, s) {
-    const t = { qty: 0, preco: 0, nota: 0, f1: 0, f2: 0, taxa: 0, usd: 0, brl: 0 };
+  function calcTotals(rows, s, entrega = 0) {
+    const t = { qty: 0, preco: 0, nota: 0, f1: 0, f2: 0, taxa: 0, entrega: 0, usd: 0, brl: 0 };
     rows.forEach((r) => {
-      const c = calcRow(r, s);
+      const c = calcRow(r, s, entrega);
       t.qty += c.qty; t.preco += c.lPreco; t.nota += c.lNota; t.f1 += c.lF1; t.f2 += c.lF2;
-      t.taxa += c.lTaxa; t.usd += c.lUSD; t.brl += c.lBRL;
+      t.taxa += c.lTaxa; t.entrega += c.lEntrega || 0; t.usd += c.lUSD; t.brl += c.lBRL;
     });
     return t;
   }
+  const totaisCompra = (c) => calcTotals(c.rows, c.settings, entregaUnit(c));
   const pickSnap = (s) => { const o = {}; SNAP_KEYS.forEach((k) => { o[k] = s[k]; }); return o; };
 
   function soldQty(compraId, rowId) {
@@ -1572,7 +1583,7 @@
   function stockList() {
     const out = [];
     state.compras.filter((c) => !emTransito(c)).forEach((c) => c.rows.forEach((r) => {
-      const k = calcRow(r, c.settings);
+      const k = calcRow(r, c.settings, entregaUnit(c));
       const sold = soldQty(c.id, r.id); const lost = lostQty(c.id, r.id);
       out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data,
         modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
@@ -1582,7 +1593,7 @@
   function itemCusto(i) {
     const c = state.compras.find((x) => x.id === i.compraId);
     const r = c && c.rows.find((x) => x.id === i.rowId);
-    if (c && r) return calcRow(r, c.settings).custoBRL;
+    if (c && r) return calcRow(r, c.settings, entregaUnit(c)).custoBRL;
     return numOr(i.custoBRL, 0);
   }
   function vendaTotals(v) {
@@ -1652,6 +1663,7 @@
     $("compraNome").value = d.nome || "";
     $("compraData").value = d.data || todayISO();
     $("compraTransito").checked = d.transito !== false;
+    $("compraEntrega").value = numOr(d.custoEntrega, 0) > 0 ? d.custoEntrega : "";
     $("editBadge").hidden = !d.editingId;
     $("btnCancelarEdicao").hidden = !d.editingId;
     $("btnSalvarCompra").textContent = d.editingId ? "Salvar alterações" : "Salvar compra";
@@ -1659,13 +1671,15 @@
   $("compraNome").addEventListener("input", (e) => { state.draft.nome = e.target.value; save(); });
   $("compraData").addEventListener("input", (e) => { state.draft.data = e.target.value; save(); });
   $("compraTransito").addEventListener("change", (e) => { state.draft.transito = e.target.checked; save(); });
+  $("compraEntrega").addEventListener("input", (e) => { state.draft.custoEntrega = numOr(e.target.value, 0); save(); renderRows(); });
 
+  const draftEntregaUnit = () => entregaUnit({ custoEntrega: state.draft.custoEntrega, rows: state.draft.rows });
   function renderRows() {
     const tbody = $("rows");
     const s = state.settings;
     tbody.innerHTML = "";
     state.draft.rows.forEach((row, idx) => {
-      const c = calcRow(row, s);
+      const c = calcRow(row, s, draftEntregaUnit());
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><div class="cell-stack">${modeloSelect(row.modelo, idx)}<input type="text" autocomplete="off" data-idx="${idx}" data-field="modelo" value="${esc(row.modelo)}" placeholder="digite o modelo" ${modeloNaLista(row.modelo) || !row.modelo ? "hidden" : ""}></div></td>
@@ -1708,7 +1722,8 @@
     else if (field === "notaPct") row.notaPct = val === "" ? null : Number(val);
     else row.modelo = val;
     save();
-    const c = calcRow(row, state.settings);
+    if (field === "qty" && draftEntregaUnit() > 0) { renderRows(); return; }
+    const c = calcRow(row, state.settings, draftEntregaUnit());
     const cells = $("rows").children[idx].querySelectorAll("td.computed");
     cells[0].textContent = fmtUSD(c.valorNota);
     cells[1].textContent = fmtUSD(c.frete1);
@@ -1724,7 +1739,7 @@
   function margemListaCell(modelo, custoBRL) { const v = precoTabela(modelo); return v !== null && v > 0 ? fmtPct((v - custoBRL) / v * 100) : "—"; }
   function margemListaClass(modelo, custoBRL) { const v = precoTabela(modelo); if (v === null || !(v > 0)) return ""; return (v - custoBRL) / v * 100 >= numOr(state.calc.margem, 0) ? "pos" : "neg"; }
   function renderDraftTotals() {
-    const t = calcTotals(state.draft.rows, state.settings);
+    const t = calcTotals(state.draft.rows, state.settings, draftEntregaUnit());
     $("ftPreco").textContent = fmtUSD(t.preco);
     $("ftQtd").textContent = t.qty;
     $("ftNota").textContent = fmtUSD(t.nota);
@@ -1742,6 +1757,7 @@
     $("rsNota").textContent = fmtUSD(t.nota);
     $("rsF1").textContent = fmtUSD(t.f1);
     $("rsF2").textContent = fmtUSD(t.f2);
+    $("rsEntrega").textContent = t.entrega > 0 ? fmtBRL(t.entrega) + " (" + fmtBRL(t.qty ? t.entrega / t.qty : 0) + "/ap.)" : "—";
     $("rsUSD").textContent = fmtUSD(t.usd);
     $("rsBRL").textContent = fmtBRL(t.brl);
     $("rsBRLsub").textContent = "cotação R$ " + Number(numOr(state.settings.cotacao, 0)).toLocaleString("pt-BR", nf2);
@@ -1787,13 +1803,13 @@
       }
       const removed = c.rows.find((cr) => !clean.find((r) => r.id === cr.id) && (soldQty(c.id, cr.id) + lostQty(c.id, cr.id)) > 0);
       if (removed) { toast(`"${removed.modelo}" já tem vendas e não pode ser removido.`); return; }
-      c.nome = nome; c.data = d.data || todayISO(); c.settings = snap; c.rows = clean;
+      c.nome = nome; c.data = d.data || todayISO(); c.settings = snap; c.rows = clean; c.custoEntrega = numOr(d.custoEntrega, 0) > 0 ? numOr(d.custoEntrega, 0) : 0;
       const vendidos = clean.reduce((a, r) => a + soldQty(c.id, r.id) + lostQty(c.id, r.id), 0);
       if (d.transito !== false && vendidos > 0) toast("Compra com aparelhos já vendidos não pode voltar para trânsito."); else c.status = d.transito !== false ? "transito" : "recebida";
       if (c.status === "recebida" && !c.recebidaEm) c.recebidaEm = todayISO();
       toast("Compra atualizada.");
     } else {
-      state.compras.unshift({ id: uid(), nome, data: d.data || todayISO(), settings: snap, rows: clean, criadoEm: Date.now(), status: d.transito !== false ? "transito" : "recebida", recebidaEm: d.transito !== false ? null : todayISO() });
+      state.compras.unshift({ id: uid(), nome, data: d.data || todayISO(), settings: snap, rows: clean, criadoEm: Date.now(), status: d.transito !== false ? "transito" : "recebida", recebidaEm: d.transito !== false ? null : todayISO(), custoEntrega: numOr(d.custoEntrega, 0) > 0 ? numOr(d.custoEntrega, 0) : 0 });
       toast(d.transito !== false ? "Compra salva como em trânsito. Marque como recebida quando chegar." : "Compra salva. Os aparelhos já estão no estoque.");
     }
     state.draft = newDraft();
@@ -1803,7 +1819,7 @@
     const rows = validRows(state.draft.rows);
     if (!rows.length) { toast("Preencha pelo menos um aparelho para gerar o PDF."); return; }
     const nome = (state.draft.nome || "").trim() || ("Compra " + fmtDate(state.draft.data));
-    printCompra({ nome, data: state.draft.data, settings: pickSnap(state.settings), rows });
+    printCompra({ nome, data: state.draft.data, settings: pickSnap(state.settings), rows, custoEntrega: numOr(state.draft.custoEntrega, 0), status: state.draft.transito !== false ? "transito" : "recebida" });
   });
 
   /* ================= CALCULADORA ================= */
@@ -2218,10 +2234,10 @@
     const totalUnits = stock.reduce((a, s) => a + s.qty, 0);
     const availUnits = stock.reduce((a, s) => a + s.avail, 0);
     const stockBRL = stock.reduce((a, s) => a + s.avail * s.custoBRL, 0);
-    const investBRL = state.compras.reduce((a, c) => a + calcTotals(c.rows, c.settings).brl, 0);
+    const investBRL = state.compras.reduce((a, c) => a + totaisCompra(c).brl, 0);
     const transito = state.compras.filter(emTransito);
-    const transitoUnits = transito.reduce((a, c) => a + calcTotals(c.rows, c.settings).qty, 0);
-    const transitoBRL = transito.reduce((a, c) => a + calcTotals(c.rows, c.settings).brl, 0);
+    const transitoUnits = transito.reduce((a, c) => a + totaisCompra(c).qty, 0);
+    const transitoBRL = transito.reduce((a, c) => a + totaisCompra(c).brl, 0);
     $("comprasStats").innerHTML = `
       <div class="tile"><div class="label">Compras</div><div class="value">${state.compras.length}</div><div class="sub">${totalUnits + transitoUnits} aparelho(s) no total</div></div>
       <div class="tile amber"><div class="label">Investido</div><div class="value">${fmtBRL(investBRL)}</div><div class="sub">custo final de todas as compras</div></div>
@@ -2235,8 +2251,8 @@
     }
     list.innerHTML = "";
     state.compras.forEach((c) => {
-      const t = calcTotals(c.rows, c.settings);
-      const items = emTransito(c) ? c.rows.map((r) => { const k = calcRow(r, c.settings); return { rowId: r.id, sold: 0, lost: 0, avail: 0, qty: k.qty }; }) : stock.filter((s) => s.compraId === c.id);
+      const t = totaisCompra(c);
+      const items = emTransito(c) ? c.rows.map((r) => { const k = calcRow(r, c.settings, entregaUnit(c)); return { rowId: r.id, sold: 0, lost: 0, avail: 0, qty: k.qty }; }) : stock.filter((s) => s.compraId === c.id);
       const avail = items.reduce((a, s) => a + s.avail, 0);
       const sold = items.reduce((a, s) => a + s.sold, 0);
       const el = document.createElement("div");
@@ -2247,7 +2263,7 @@
           <span class="chev">▶</span>
           <div class="item-main">
             <div class="item-title">${esc(c.nome)} ${statusBadge}</div>
-            <div class="item-sub">${fmtDate(c.data)} · ${t.qty} aparelho(s) · ${emTransito(c) ? "aguardando chegada" : avail + " em estoque"}${c.recebidaEm && !emTransito(c) ? " · recebida " + fmtDate(c.recebidaEm) : ""} · cotação R$ ${Number(c.settings.cotacao).toLocaleString("pt-BR", nf2)}</div>
+            <div class="item-sub">${fmtDate(c.data)} · ${t.qty} aparelho(s) · ${emTransito(c) ? "aguardando chegada" : avail + " em estoque"}${numOr(c.custoEntrega, 0) > 0 ? " · entrega SP→BA " + fmtBRL(c.custoEntrega) + " (" + fmtBRL(entregaUnit(c)) + "/ap.)" : ""}${c.recebidaEm && !emTransito(c) ? " · recebida " + fmtDate(c.recebidaEm) : ""} · cotação R$ ${Number(c.settings.cotacao).toLocaleString("pt-BR", nf2)}</div>
           </div>
           <div class="item-figs">
             <div class="fig"><div class="l">Nota declarada</div><div class="v">${fmtUSD(t.nota)}</div></div>
@@ -2260,13 +2276,14 @@
             <table class="wide">
               <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Perdas</th><th class="num">Estoque</th></tr></thead>
               <tbody>
-                ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, lost: 0, avail: k.qty };
+                ${c.rows.map((r) => { const k = calcRow(r, c.settings, entregaUnit(c)); const s = items.find((x) => x.rowId === r.id) || { sold: 0, lost: 0, avail: k.qty };
                   return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.direto ? "<span class=\"muted\">direto</span>" : fmtUSD(k.preco)}</td><td class="num">${k.direto ? "—" : k.notaPct + "%"}</td><td class="num">${k.direto ? "—" : fmtUSD(k.valorNota)}</td><td class="num">${k.direto ? "—" : fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${emTransito(c) ? "<span class=\"muted\">trânsito</span>" : s.avail}</td></tr>`; }).join("")}
               </tbody>
             </table>
           </div>
           <div class="actions">
             ${emTransito(c) ? `<button class="btn small primary" type="button" data-receber="${c.id}">Marcar como recebida</button>` : (sold === 0 && items.every((s) => !s.lost) ? `<button class="btn small" type="button" data-transito="${c.id}">Voltar para trânsito</button>` : "")}
+            <button class="btn small" type="button" data-entrega="${c.id}" title="Custo do transporte de SP até a Bahia, dividido pelos aparelhos">Entrega SP→BA${numOr(c.custoEntrega, 0) > 0 ? ": " + fmtBRL(c.custoEntrega) : ""}</button>
             <button class="btn small" type="button" data-pdf="${c.id}">Gerar PDF</button>
             <button class="btn small" type="button" data-edit="${c.id}">Editar</button>
             <span class="spacer"></span>
@@ -2284,10 +2301,20 @@
       const c = state.compras.find((x) => x.id === b.dataset.pdf);
       if (c) printCompra(c);
     }));
+    list.querySelectorAll("[data-entrega]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.entrega); if (!c) return;
+      const q = c.rows.reduce((a, r) => a + Math.max(1, Math.round(numOr(r.qty, 1))), 0);
+      const v = prompt(`Custo da entrega deste lote até a Bahia (R$ total). O valor é dividido pelos ${q} aparelho(s) e somado ao custo de cada um.`, numOr(c.custoEntrega, 0) > 0 ? String(c.custoEntrega) : "");
+      if (v === null) return;
+      const n = numOr(String(v).replace(",", "."), 0); c.custoEntrega = n > 0 ? n : 0; save(); renderAll();
+      toast(n > 0 ? "Entrega de " + fmtBRL(entregaUnit(c)) + " por aparelho somada ao custo." : "Entrega removida.");
+    }));
     list.querySelectorAll("[data-receber]").forEach((b) => b.addEventListener("click", () => {
       const c = state.compras.find((x) => x.id === b.dataset.receber); if (!c) return;
-      if (!confirm(`Marcar "${c.nome}" como recebida? Os aparelhos entram no estoque agora.`)) return;
-      c.status = "recebida"; c.recebidaEm = todayISO(); save(); renderAll(); toast("Compra recebida. Aparelhos no estoque.");
+      const v = prompt(`Marcar "${c.nome}" como recebida.\n\nQuanto custou a entrega deste lote até a Bahia (R$ total)? Deixe em branco se não houve.`, numOr(c.custoEntrega, 0) > 0 ? String(c.custoEntrega) : "");
+      if (v === null) return;
+      const n = numOr(String(v).replace(",", "."), 0); c.custoEntrega = n > 0 ? n : 0;
+      c.status = "recebida"; c.recebidaEm = todayISO(); save(); renderAll(); toast("Compra recebida. Aparelhos no estoque" + (n > 0 ? ", com " + fmtBRL(entregaUnit(c)) + " de entrega por aparelho." : "."));
     }));
     list.querySelectorAll("[data-transito]").forEach((b) => b.addEventListener("click", () => {
       const c = state.compras.find((x) => x.id === b.dataset.transito); if (!c) return;
@@ -2298,7 +2325,7 @@
       if (!c) return;
       if (validRows(state.draft.rows).length && !state.draft.editingId && !confirm("A compra em andamento na aba “Nova compra” será substituída. Continuar?")) return;
       state.settings = { ...state.settings, ...c.settings };
-      state.draft = { editingId: c.id, nome: c.nome, data: c.data, rows: c.rows.map((r) => ({ ...r })), transito: emTransito(c) };
+      state.draft = { editingId: c.id, nome: c.nome, data: c.data, rows: c.rows.map((r) => ({ ...r })), transito: emTransito(c), custoEntrega: numOr(c.custoEntrega, 0) };
       save(); renderAll(); showTab("compra");
     }));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
@@ -2347,7 +2374,7 @@
     $("pillEstoque").textContent = tQty;
     $("estoqueStats").innerHTML = `
       <div class="tile"><div class="label">Aparelhos</div><div class="value">${tQty}</div><div class="sub">${grupos.length} modelo(s)</div></div>
-      <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">${(() => { const tr = state.compras.filter(emTransito); const n = tr.reduce((a, c) => a + calcTotals(c.rows, c.settings).qty, 0); return n ? n + " aparelho(s) em trânsito, fora do estoque" : "dinheiro parado"; })()}</div></div>
+      <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">${(() => { const tr = state.compras.filter(emTransito); const n = tr.reduce((a, c) => a + totaisCompra(c).qty, 0); return n ? n + " aparelho(s) em trânsito, fora do estoque" : "dinheiro parado"; })()}</div></div>
       <div class="tile"><div class="label">Venda potencial</div><div class="value">${fmtBRL(tVenda)}</div><div class="sub">${semPreco ? semPreco + " modelo(s) sem preço na lista" : "pela lista de preços"}</div></div>
       <div class="tile ${tLucro < 0 ? "danger" : "teal"}"><div class="label">Lucro potencial</div><div class="value">${fmtBRL(tLucro)}</div><div class="sub">${tVenda > 0 ? "margem de " + fmtPct(tLucro / tVenda * 100) : "—"}</div></div>
       <div class="tile ${perdasCustoTotal() > 0 ? "danger" : ""}"><div class="label">Perdas</div><div class="value">${fmtBRL(perdasCustoTotal())}</div><div class="sub">${(state.perdas || []).reduce((a, p) => a + numOr(p.qty, 0), 0)} aparelho(s) baixado(s)</div></div>`;
@@ -3060,7 +3087,7 @@
     </div>`;
   }
   function printCompra(c) {
-    const t = calcTotals(c.rows, c.settings);
+    const t = totaisCompra(c);
     const s = c.settings;
     const html = `<div class="doc">
       ${docHeader("Compra de aparelhos — " + c.nome, ["Data: " + fmtDate(c.data), "Aparelhos: " + t.qty, "Cotação: R$ " + Number(s.cotacao).toLocaleString("pt-BR", nf2), emTransito(c) ? "Situação: em trânsito" : "Situação: recebida" + (c.recebidaEm ? " em " + fmtDate(c.recebidaEm) : "")])}
@@ -3075,7 +3102,7 @@
       <div class="section"><h3>Aparelhos</h3>
       <table>
         <thead><tr><th>Modelo</th><th class="num">Qtd</th><th class="num">Lance (un.)</th><th class="num">Nota (un.)</th><th class="num">Frete MIA→PY</th><th class="num">Frete PY→SP</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Custo total R$</th></tr></thead>
-        <tbody>${c.rows.map((r) => { const k = calcRow(r, s);
+        <tbody>${c.rows.map((r) => { const k = calcRow(r, s, entregaUnit(c));
           return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.qty}</td><td class="num">${fmtUSD(k.preco)}</td><td class="num">${fmtUSD(k.valorNota)}</td><td class="num">${fmtUSD(k.frete1)}</td><td class="num">${fmtUSD(k.frete2)}</td><td class="num">${fmtUSD(k.custoUSD)}</td><td class="num">${fmtBRL(k.custoBRL)}</td><td class="num">${fmtBRL(k.lBRL)}</td></tr>`; }).join("")}</tbody>
         <tfoot><tr><td>Total</td><td class="num">${t.qty}</td><td class="num">${fmtUSD(t.preco)}</td><td class="num">${fmtUSD(t.nota)}</td><td class="num">${fmtUSD(t.f1)}</td><td class="num">${fmtUSD(t.f2)}</td><td class="num">${fmtUSD(t.usd)}</td><td></td><td class="num">${fmtBRL(t.brl)}</td></tr></tfoot>
       </table></div>
@@ -3085,6 +3112,7 @@
           <div><span>Taxa fixa:</span> ${fmtUSD(t.taxa)}</div>
           <div><span>Nota a declarar:</span> ${fmtUSD(t.nota)}</div>
           <div><span>Frete total:</span> ${fmtUSD(t.f1 + t.f2)}</div>
+          <div><span>Entrega SP → Bahia:</span> ${t.entrega > 0 ? fmtBRL(t.entrega) + " (" + fmtBRL(t.qty ? t.entrega / t.qty : 0) + " por aparelho)" : "—"}</div>
           <div><span>Custo final:</span> ${fmtUSD(t.usd)} = ${fmtBRL(t.brl)}</div>
           <div><span>Custo médio por aparelho:</span> ${fmtBRL(t.qty ? t.brl / t.qty : 0)}</div>
         </div>

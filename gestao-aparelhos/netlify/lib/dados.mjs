@@ -9,11 +9,14 @@ const isBlank = (v) => v === null || v === undefined || v === "";
 export const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cotacao: 5.4, empresa: "", contato: "" };
 
 /* ---------------- cálculo (espelho exato do app) ---------------- */
-export function calcRow(row, s) {
+// Entrega SP → Bahia: custo total do lote (c.custoEntrega, R$) dividido igualmente pelos aparelhos.
+export const entregaUnit = (c) => { const tot = numOr(c && c.custoEntrega, 0); if (!(tot > 0)) return 0; const q = (c.rows || []).reduce((a, r) => a + Math.max(1, Math.round(numOr(r.qty, 1))), 0); return q ? tot / q : 0; };
+export function calcRow(row, s, entrega = 0) {
+  const ex = numOr(entrega, 0);
   if (row.custoBRL !== null && row.custoBRL !== undefined && row.custoBRL !== "") {
-    const custoBRL = numOr(row.custoBRL, 0); const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
+    const custoBRL = numOr(row.custoBRL, 0) + ex; const cot = numOr(s.cotacao, 0); const custoUSD = cot > 0 ? custoBRL / cot : 0;
     const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
-    return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, custoUSD, custoBRL, qty, cotacao: cot, direto: true, lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
+    return { preco: 0, notaPct: 0, valorNota: 0, frete1: 0, frete2: 0, taxa: 0, entrega: ex, custoUSD, custoBRL, qty, cotacao: cot, direto: true, lPreco: 0, lNota: 0, lF1: 0, lF2: 0, lTaxa: 0, lEntrega: ex * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
   }
   const preco = numOr(row.preco, 0);
   const notaPct = isBlank(row.notaPct) ? numOr(s.notaPct, 0) : numOr(row.notaPct, 0);
@@ -21,18 +24,19 @@ export function calcRow(row, s) {
   const frete1 = valorNota * numOr(s.frete1, 0) / 100;
   const frete2 = valorNota * numOr(s.frete2, 0) / 100;
   const taxa = numOr(s.taxaFixa, 0);
-  const custoUSD = preco + taxa + frete1 + frete2;
   const cot = numOr(s.cotacao, 0);
-  const custoBRL = custoUSD * cot;
+  const custoUSD = preco + taxa + frete1 + frete2 + (cot > 0 ? ex / cot : 0);
+  const custoBRL = (preco + taxa + frete1 + frete2) * cot + ex;
   const qty = Math.max(1, Math.round(numOr(row.qty, 1)));
-  return { preco, notaPct, valorNota, frete1, frete2, taxa, custoUSD, custoBRL, qty, cotacao: cot,
-    lPreco: preco * qty, lNota: valorNota * qty, lF1: frete1 * qty, lF2: frete2 * qty, lTaxa: taxa * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
+  return { preco, notaPct, valorNota, frete1, frete2, taxa, entrega: ex, custoUSD, custoBRL, qty, cotacao: cot,
+    lPreco: preco * qty, lNota: valorNota * qty, lF1: frete1 * qty, lF2: frete2 * qty, lTaxa: taxa * qty, lEntrega: ex * qty, lUSD: custoUSD * qty, lBRL: custoBRL * qty };
 }
-export function calcTotais(rows, s) {
-  const t = { qty: 0, preco: 0, nota: 0, f1: 0, f2: 0, taxa: 0, usd: 0, brl: 0 };
-  (rows || []).forEach((r) => { const c = calcRow(r, s); t.qty += c.qty; t.preco += c.lPreco; t.nota += c.lNota; t.f1 += c.lF1; t.f2 += c.lF2; t.taxa += c.lTaxa; t.usd += c.lUSD; t.brl += c.lBRL; });
+export function calcTotais(rows, s, entrega = 0) {
+  const t = { qty: 0, preco: 0, nota: 0, f1: 0, f2: 0, taxa: 0, entrega: 0, usd: 0, brl: 0 };
+  (rows || []).forEach((r) => { const c = calcRow(r, s, entrega); t.qty += c.qty; t.preco += c.lPreco; t.nota += c.lNota; t.f1 += c.lF1; t.f2 += c.lF2; t.taxa += c.lTaxa; t.entrega += c.lEntrega || 0; t.usd += c.lUSD; t.brl += c.lBRL; });
   return t;
 }
+export const totaisCompra = (state, c) => calcTotais(c.rows, c.settings || state.settings || DEFAULT_SETTINGS, entregaUnit(c));
 export function soldQty(state, compraId, rowId) {
   let n = 0;
   (state.vendas || []).forEach((v) => (v.itens || []).forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }));
@@ -45,12 +49,12 @@ export function lostQty(state, compraId, rowId) {
 }
 export const emTransito = (c) => !!c && c.status === "transito";
 export function comprasEmTransito(state) {
-  return (state.compras || []).filter(emTransito).map((c) => { const tt = calcTotais(c.rows, c.settings || state.settings); return { id: c.id, nome: c.nome, data: c.data, aparelhos: tt.qty, custoBRL: round2(tt.brl), itens: (c.rows || []).map((r) => ({ modelo: r.modelo, qty: Math.max(1, Math.round(numOr(r.qty, 1))) })) }; });
+  return (state.compras || []).filter(emTransito).map((c) => { const tt = totaisCompra(state, c); return { id: c.id, nome: c.nome, data: c.data, aparelhos: tt.qty, custoBRL: round2(tt.brl), entregaBahiaBRL: round2(numOr(c.custoEntrega, 0)), itens: (c.rows || []).map((r) => ({ modelo: r.modelo, qty: Math.max(1, Math.round(numOr(r.qty, 1))) })) }; });
 }
 export function stockList(state) {
   const out = [];
   (state.compras || []).filter((c) => !emTransito(c)).forEach((c) => (c.rows || []).forEach((r) => {
-    const k = calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS);
+    const k = calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS, entregaUnit(c));
     const sold = soldQty(state, c.id, r.id); const lost = lostQty(state, c.id, r.id);
     out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data, modelo: r.modelo,
       custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
@@ -68,7 +72,7 @@ export function gastosPeriodo(state, { de, ate, compraId } = {}) {
 export function itemCusto(state, i) {
   const c = (state.compras || []).find((x) => x.id === i.compraId);
   const r = c && (c.rows || []).find((x) => x.id === i.rowId);
-  if (c && r) return calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS).custoBRL;
+  if (c && r) return calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS, entregaUnit(c)).custoBRL;
   return numOr(i.custoBRL, 0);
 }
 export function vendaTotais(state, v) {
