@@ -809,6 +809,10 @@
             <input type="date" id="compraData">
           </div>
         </div>
+        <div class="toggle-row" style="margin-top:12px">
+          <input type="checkbox" id="compraTransito" checked>
+          <label for="compraTransito"><b>Em trânsito</b>: ainda não chegou. Fica fora do estoque e das vendas até você marcar como recebida na aba Compras.</label>
+        </div>
       </div>
 
       <div class="card">
@@ -1411,7 +1415,7 @@
   const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cotacao"];
 
   const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
-  const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()] });
+  const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()], transito: true });
   const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [], orcamentoId: null });
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
@@ -1562,11 +1566,12 @@
     (state.perdas || []).forEach((p) => { if (p.compraId === compraId && p.rowId === rowId) n += numOr(p.qty, 0); });
     return n;
   }
+  const emTransito = (c) => c && c.status === "transito";
   const MOTIVOS_PERDA = { roubo: "Roubo / furto", defeito: "Defeito sem conserto", brinde: "Brinde / doação", troca: "Troca em garantia", uso: "Uso próprio", outro: "Outro" };
   const CATEGORIAS_GASTO = { frete: "Frete / transporte", embalagem: "Embalagem", taxa: "Taxa de pagamento", deslocamento: "Deslocamento", assistencia: "Assistência / reparo", marketing: "Marketing", outros: "Outros" };
   function stockList() {
     const out = [];
-    state.compras.forEach((c) => c.rows.forEach((r) => {
+    state.compras.filter((c) => !emTransito(c)).forEach((c) => c.rows.forEach((r) => {
       const k = calcRow(r, c.settings);
       const sold = soldQty(c.id, r.id); const lost = lostQty(c.id, r.id);
       out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data,
@@ -1646,12 +1651,14 @@
     const d = state.draft;
     $("compraNome").value = d.nome || "";
     $("compraData").value = d.data || todayISO();
+    $("compraTransito").checked = d.transito !== false;
     $("editBadge").hidden = !d.editingId;
     $("btnCancelarEdicao").hidden = !d.editingId;
     $("btnSalvarCompra").textContent = d.editingId ? "Salvar alterações" : "Salvar compra";
   }
   $("compraNome").addEventListener("input", (e) => { state.draft.nome = e.target.value; save(); });
   $("compraData").addEventListener("input", (e) => { state.draft.data = e.target.value; save(); });
+  $("compraTransito").addEventListener("change", (e) => { state.draft.transito = e.target.checked; save(); });
 
   function renderRows() {
     const tbody = $("rows");
@@ -1781,10 +1788,13 @@
       const removed = c.rows.find((cr) => !clean.find((r) => r.id === cr.id) && (soldQty(c.id, cr.id) + lostQty(c.id, cr.id)) > 0);
       if (removed) { toast(`"${removed.modelo}" já tem vendas e não pode ser removido.`); return; }
       c.nome = nome; c.data = d.data || todayISO(); c.settings = snap; c.rows = clean;
+      const vendidos = clean.reduce((a, r) => a + soldQty(c.id, r.id) + lostQty(c.id, r.id), 0);
+      if (d.transito !== false && vendidos > 0) toast("Compra com aparelhos já vendidos não pode voltar para trânsito."); else c.status = d.transito !== false ? "transito" : "recebida";
+      if (c.status === "recebida" && !c.recebidaEm) c.recebidaEm = todayISO();
       toast("Compra atualizada.");
     } else {
-      state.compras.unshift({ id: uid(), nome, data: d.data || todayISO(), settings: snap, rows: clean, criadoEm: Date.now() });
-      toast("Compra salva. Os aparelhos já estão no estoque.");
+      state.compras.unshift({ id: uid(), nome, data: d.data || todayISO(), settings: snap, rows: clean, criadoEm: Date.now(), status: d.transito !== false ? "transito" : "recebida", recebidaEm: d.transito !== false ? null : todayISO() });
+      toast(d.transito !== false ? "Compra salva como em trânsito. Marque como recebida quando chegar." : "Compra salva. Os aparelhos já estão no estoque.");
     }
     state.draft = newDraft();
     save(); renderAll(); showTab("compras");
@@ -2209,9 +2219,13 @@
     const availUnits = stock.reduce((a, s) => a + s.avail, 0);
     const stockBRL = stock.reduce((a, s) => a + s.avail * s.custoBRL, 0);
     const investBRL = state.compras.reduce((a, c) => a + calcTotals(c.rows, c.settings).brl, 0);
+    const transito = state.compras.filter(emTransito);
+    const transitoUnits = transito.reduce((a, c) => a + calcTotals(c.rows, c.settings).qty, 0);
+    const transitoBRL = transito.reduce((a, c) => a + calcTotals(c.rows, c.settings).brl, 0);
     $("comprasStats").innerHTML = `
-      <div class="tile"><div class="label">Compras</div><div class="value">${state.compras.length}</div><div class="sub">${totalUnits} aparelho(s) no total</div></div>
+      <div class="tile"><div class="label">Compras</div><div class="value">${state.compras.length}</div><div class="sub">${totalUnits + transitoUnits} aparelho(s) no total</div></div>
       <div class="tile amber"><div class="label">Investido</div><div class="value">${fmtBRL(investBRL)}</div><div class="sub">custo final de todas as compras</div></div>
+      <div class="tile ${transitoUnits ? "amber" : ""}"><div class="label">Em trânsito</div><div class="value">${transitoUnits}</div><div class="sub">${transito.length} compra(s) · ${fmtBRL(transitoBRL)}</div></div>
       <div class="tile"><div class="label">Em estoque</div><div class="value">${availUnits}</div><div class="sub">${fmtBRL(stockBRL)} em custo</div></div>`;
     $("pillCompras").textContent = state.compras.length;
 
@@ -2222,18 +2236,18 @@
     list.innerHTML = "";
     state.compras.forEach((c) => {
       const t = calcTotals(c.rows, c.settings);
-      const items = stock.filter((s) => s.compraId === c.id);
+      const items = emTransito(c) ? c.rows.map((r) => { const k = calcRow(r, c.settings); return { rowId: r.id, sold: 0, lost: 0, avail: 0, qty: k.qty }; }) : stock.filter((s) => s.compraId === c.id);
       const avail = items.reduce((a, s) => a + s.avail, 0);
       const sold = items.reduce((a, s) => a + s.sold, 0);
       const el = document.createElement("div");
       el.className = "item" + (openItems.has(c.id) ? " open" : "");
-      const statusBadge = avail === 0 ? `<span class="badge neutral">tudo vendido</span>` : sold > 0 ? `<span class="badge teal">${sold} vendido(s)</span>` : "";
+      const statusBadge = emTransito(c) ? `<span class="badge">em trânsito</span>` : avail === 0 && t.qty > 0 ? `<span class="badge neutral">tudo vendido</span>` : sold > 0 ? `<span class="badge teal">${sold} vendido(s)</span>` : "";
       el.innerHTML = `
         <div class="item-head" data-toggle="${c.id}">
           <span class="chev">▶</span>
           <div class="item-main">
             <div class="item-title">${esc(c.nome)} ${statusBadge}</div>
-            <div class="item-sub">${fmtDate(c.data)} · ${t.qty} aparelho(s) · ${avail} em estoque · cotação R$ ${Number(c.settings.cotacao).toLocaleString("pt-BR", nf2)}</div>
+            <div class="item-sub">${fmtDate(c.data)} · ${t.qty} aparelho(s) · ${emTransito(c) ? "aguardando chegada" : avail + " em estoque"}${c.recebidaEm && !emTransito(c) ? " · recebida " + fmtDate(c.recebidaEm) : ""} · cotação R$ ${Number(c.settings.cotacao).toLocaleString("pt-BR", nf2)}</div>
           </div>
           <div class="item-figs">
             <div class="fig"><div class="l">Nota declarada</div><div class="v">${fmtUSD(t.nota)}</div></div>
@@ -2247,11 +2261,12 @@
               <thead><tr><th>Modelo</th><th class="num">Lance</th><th class="num">% nota</th><th class="num">Nota (un.)</th><th class="num">Frete total</th><th class="num">Custo un. US$</th><th class="num">Custo un. R$</th><th class="num">Qtd</th><th class="num">Vendidos</th><th class="num">Perdas</th><th class="num">Estoque</th></tr></thead>
               <tbody>
                 ${c.rows.map((r) => { const k = calcRow(r, c.settings); const s = items.find((x) => x.rowId === r.id) || { sold: 0, lost: 0, avail: k.qty };
-                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.direto ? "<span class=\"muted\">direto</span>" : fmtUSD(k.preco)}</td><td class="num">${k.direto ? "—" : k.notaPct + "%"}</td><td class="num">${k.direto ? "—" : fmtUSD(k.valorNota)}</td><td class="num">${k.direto ? "—" : fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${s.avail}</td></tr>`; }).join("")}
+                  return `<tr><td>${esc(r.modelo)}</td><td class="num">${k.direto ? "<span class=\"muted\">direto</span>" : fmtUSD(k.preco)}</td><td class="num">${k.direto ? "—" : k.notaPct + "%"}</td><td class="num">${k.direto ? "—" : fmtUSD(k.valorNota)}</td><td class="num">${k.direto ? "—" : fmtUSD(k.frete1 + k.frete2)}</td><td class="num computed strong">${fmtUSD(k.custoUSD)}</td><td class="num computed amber">${fmtBRL(k.custoBRL)}</td><td class="num">${k.qty}</td><td class="num">${s.sold}</td><td class="num ${s.lost ? "neg" : ""}">${s.lost || 0}</td><td class="num ${s.avail ? "pos" : "muted"}">${emTransito(c) ? "<span class=\"muted\">trânsito</span>" : s.avail}</td></tr>`; }).join("")}
               </tbody>
             </table>
           </div>
           <div class="actions">
+            ${emTransito(c) ? `<button class="btn small primary" type="button" data-receber="${c.id}">Marcar como recebida</button>` : (sold === 0 && items.every((s) => !s.lost) ? `<button class="btn small" type="button" data-transito="${c.id}">Voltar para trânsito</button>` : "")}
             <button class="btn small" type="button" data-pdf="${c.id}">Gerar PDF</button>
             <button class="btn small" type="button" data-edit="${c.id}">Editar</button>
             <span class="spacer"></span>
@@ -2269,12 +2284,21 @@
       const c = state.compras.find((x) => x.id === b.dataset.pdf);
       if (c) printCompra(c);
     }));
+    list.querySelectorAll("[data-receber]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.receber); if (!c) return;
+      if (!confirm(`Marcar "${c.nome}" como recebida? Os aparelhos entram no estoque agora.`)) return;
+      c.status = "recebida"; c.recebidaEm = todayISO(); save(); renderAll(); toast("Compra recebida. Aparelhos no estoque.");
+    }));
+    list.querySelectorAll("[data-transito]").forEach((b) => b.addEventListener("click", () => {
+      const c = state.compras.find((x) => x.id === b.dataset.transito); if (!c) return;
+      c.status = "transito"; c.recebidaEm = null; save(); renderAll(); toast("Compra marcada como em trânsito.");
+    }));
     list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => {
       const c = state.compras.find((x) => x.id === b.dataset.edit);
       if (!c) return;
       if (validRows(state.draft.rows).length && !state.draft.editingId && !confirm("A compra em andamento na aba “Nova compra” será substituída. Continuar?")) return;
       state.settings = { ...state.settings, ...c.settings };
-      state.draft = { editingId: c.id, nome: c.nome, data: c.data, rows: c.rows.map((r) => ({ ...r })) };
+      state.draft = { editingId: c.id, nome: c.nome, data: c.data, rows: c.rows.map((r) => ({ ...r })), transito: emTransito(c) };
       save(); renderAll(); showTab("compra");
     }));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
@@ -2323,7 +2347,7 @@
     $("pillEstoque").textContent = tQty;
     $("estoqueStats").innerHTML = `
       <div class="tile"><div class="label">Aparelhos</div><div class="value">${tQty}</div><div class="sub">${grupos.length} modelo(s)</div></div>
-      <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">dinheiro parado</div></div>
+      <div class="tile amber"><div class="label">Custo do estoque</div><div class="value">${fmtBRL(tCusto)}</div><div class="sub">${(() => { const tr = state.compras.filter(emTransito); const n = tr.reduce((a, c) => a + calcTotals(c.rows, c.settings).qty, 0); return n ? n + " aparelho(s) em trânsito, fora do estoque" : "dinheiro parado"; })()}</div></div>
       <div class="tile"><div class="label">Venda potencial</div><div class="value">${fmtBRL(tVenda)}</div><div class="sub">${semPreco ? semPreco + " modelo(s) sem preço na lista" : "pela lista de preços"}</div></div>
       <div class="tile ${tLucro < 0 ? "danger" : "teal"}"><div class="label">Lucro potencial</div><div class="value">${fmtBRL(tLucro)}</div><div class="sub">${tVenda > 0 ? "margem de " + fmtPct(tLucro / tVenda * 100) : "—"}</div></div>
       <div class="tile ${perdasCustoTotal() > 0 ? "danger" : ""}"><div class="label">Perdas</div><div class="value">${fmtBRL(perdasCustoTotal())}</div><div class="sub">${(state.perdas || []).reduce((a, p) => a + numOr(p.qty, 0), 0)} aparelho(s) baixado(s)</div></div>`;
@@ -3039,7 +3063,7 @@
     const t = calcTotals(c.rows, c.settings);
     const s = c.settings;
     const html = `<div class="doc">
-      ${docHeader("Compra de aparelhos — " + c.nome, ["Data: " + fmtDate(c.data), "Aparelhos: " + t.qty, "Cotação: R$ " + Number(s.cotacao).toLocaleString("pt-BR", nf2)])}
+      ${docHeader("Compra de aparelhos — " + c.nome, ["Data: " + fmtDate(c.data), "Aparelhos: " + t.qty, "Cotação: R$ " + Number(s.cotacao).toLocaleString("pt-BR", nf2), emTransito(c) ? "Situação: em trânsito" : "Situação: recebida" + (c.recebidaEm ? " em " + fmtDate(c.recebidaEm) : "")])}
       <div class="section"><h3>Parâmetros</h3>
         <div class="params">
           <div><span>Taxa fixa por aparelho:</span> ${fmtUSD(s.taxaFixa)}</div>

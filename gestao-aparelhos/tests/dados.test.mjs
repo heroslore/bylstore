@@ -10,6 +10,14 @@ test("cálculo de custo bate com o app (nota 70%, dólar 5,40 e nota 90%, dólar
   assert.equal(D.round2(d.custoBRL), 1469.02);
   assert.equal(D.round2(d.frete1), 15.73); assert.equal(D.round2(d.frete2), 16.78);
 });
+test("compra em trânsito fica fora do estoque até ser recebida", () => {
+  const s = estadoExemplo();
+  s.compras.push({ id: "c8", nome: "Leilão 25/10", data: "2026-10-25", status: "transito", settings: s.settings, rows: [{ id: "r8", modelo: "iPhone 14 128GB", preco: 253, notaPct: null, qty: 5 }] });
+  assert.ok(!D.stockList(s).some((x) => x.compraId === "c8"));
+  const f = D.resumoFinanceiro(s); assert.equal(f.emTransito.aparelhos, 5); assert.equal(f.emTransito.compras, 1);
+  s.compras[2].status = "recebida";
+  assert.equal(D.stockList(s).find((x) => x.compraId === "c8").avail, 5);
+});
 test("entrada direta: custo em R$ sem cálculo de leilão", () => {
   const s = estadoExemplo();
   s.compras.push({ id: "c9", nome: "Entrada direta", data: "2026-10-20", settings: s.settings, rows: [{ id: "r9", modelo: "iPhone 15 128GB", preco: 0, custoBRL: 2100, qty: 2 }], origem: "direta" });

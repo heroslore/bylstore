@@ -43,9 +43,13 @@ export function lostQty(state, compraId, rowId) {
   (state.perdas || []).forEach((p) => { if (p.compraId === compraId && p.rowId === rowId) n += numOr(p.qty, 0); });
   return n;
 }
+export const emTransito = (c) => !!c && c.status === "transito";
+export function comprasEmTransito(state) {
+  return (state.compras || []).filter(emTransito).map((c) => { const tt = calcTotais(c.rows, c.settings || state.settings); return { id: c.id, nome: c.nome, data: c.data, aparelhos: tt.qty, custoBRL: round2(tt.brl), itens: (c.rows || []).map((r) => ({ modelo: r.modelo, qty: Math.max(1, Math.round(numOr(r.qty, 1))) })) }; });
+}
 export function stockList(state) {
   const out = [];
-  (state.compras || []).forEach((c) => (c.rows || []).forEach((r) => {
+  (state.compras || []).filter((c) => !emTransito(c)).forEach((c) => (c.rows || []).forEach((r) => {
     const k = calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS);
     const sold = soldQty(state, c.id, r.id); const lost = lostQty(state, c.id, r.id);
     out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data, modelo: r.modelo,
@@ -140,6 +144,7 @@ export function resumoFinanceiro(state, { de, ate } = {}) {
     margemBruta: faturamento > 0 ? round1((faturamento - custo) / faturamento * 100) : null,
     ticketMedio: vendas.length ? round2(faturamento / vendas.length) : null,
     capitalEmEstoque: round2(capitalEstoque), aparelhosEmEstoque: estoque.reduce((a, g) => a + g.qty, 0),
+    emTransito: { compras: comprasEmTransito(state).length, aparelhos: comprasEmTransito(state).reduce((a, c) => a + c.aparelhos, 0), custoBRL: round2(comprasEmTransito(state).reduce((a, c) => a + c.custoBRL, 0)) },
     gastos: round2(gastos), gastosPorCategoria: Object.entries(gastosCat).map(([k, v]) => ({ categoria: CATEGORIAS_GASTO[k] || k, valor: round2(v) })).sort((a, b) => b.valor - a.valor),
     perdas: round2(perdas), perdasAparelhos: perdasLista.reduce((a, p) => a + p.qty, 0),
     resultadoLiquido: round2(faturamento - custo - gastos - perdas),
