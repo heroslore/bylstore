@@ -6,7 +6,11 @@ import * as T from "./tarefas.mjs";
 import { salvarMemoria, buscarMemoria, listarRecentes, storeMemoria } from "./memoria.mjs";
 import { store } from "./auth.mjs";
 
-export const MODELO_PADRAO = "claude-opus-5";
+// Modelos: o coordenador (planeja e consolida) usa o modelo forte; os especialistas e o auditor usam um modelo mais barato.
+// Pode trocar pelas variáveis de ambiente IA_MODELO_COORDENADOR e IA_MODELO_ESPECIALISTA na Netlify.
+const envModelo = (k, d) => (typeof Netlify !== "undefined" && Netlify.env ? Netlify.env.get(k) : process.env[k]) || d;
+export const MODELO_COORDENADOR = envModelo("IA_MODELO_COORDENADOR", "claude-opus-5");
+export const MODELO_PADRAO = envModelo("IA_MODELO_ESPECIALISTA", "claude-sonnet-5-5");
 const MAX_ITERACOES = 8;          // chamadas de ferramenta por agente por rodada
 const MAX_RODADAS_AUDITORIA = 2;  // correções automáticas antes de subir ao coordenador
 
@@ -20,7 +24,7 @@ const REGRAS_GERAIS = `REGRAS INEGOCIÁVEIS:
 7. Responda em português do Brasil, direto, com números formatados em R$ e US$. Use listas e tabelas curtas quando ajudar.`;
 
 export const AGENTES = {
-  AGENTE_00_COORDENADOR: { nome: "Coordenador Geral", disponivel: true, modelo: MODELO_PADRAO,
+  AGENTE_00_COORDENADOR: { nome: "Coordenador Geral", disponivel: true, modelo: MODELO_COORDENADOR,
     papel: "Você é o Coordenador Geral do sistema de gestão da HEROS CELL / BYL IMPORTADOS. Interpreta pedidos do proprietário, planeja, distribui tarefas aos agentes especializados, consolida resultados e pede aprovação quando necessário." },
   AGENTE_01_COMPRAS: { nome: "Gestor de Compras", disponivel: true, modelo: MODELO_PADRAO,
     papel: "Você é o Gestor de Compras. Analisa lances de leilão e oportunidades de compra: custo total de aquisição em SP, rentabilidade esperada contra a lista de preços de venda, giro histórico, estoque atual, capital parado. Sugere quantidades e lance máximo. Evita compra excessiva de modelos com cobertura alta. Compras reais exigem aprovação (use propor_compra só quando pedido)." },

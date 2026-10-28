@@ -7,23 +7,23 @@
 // GET  /api/agentes/memoria?q=&tipo=  busca na memória
 // GET/POST /api/agentes/rotinas       configuração (ativar/desativar) e execução sob demanda { executar: "diaria" }
 // Todas exigem a senha do proprietário (header x-sync-key).
-import Anthropic from "@anthropic-ai/sdk";
 import { json, store, senhaConfere } from "../lib/auth.mjs";
 import { listaAgentes, executarComando, decidirProposta, ROTINAS, lerConfigRotinas, gravarConfigRotinas, executarRotina } from "../lib/agentes.mjs";
 import { listarTarefas, obterTarefa, storeTarefas, recuperarInterrompidas } from "../lib/tarefas.mjs";
 import { buscarMemoria, listarRecentes, storeMemoria } from "../lib/memoria.mjs";
 import { bylConfigurado } from "../lib/dados.mjs";
+import { clienteIA, temIA as iaConfigurada, ERRO_SEM_CHAVE } from "../lib/ia.mjs";
 
 export const config = { path: ["/api/agentes/status", "/api/agentes/comando", "/api/agentes/tarefas", "/api/agentes/tarefa", "/api/agentes/aprovar", "/api/agentes/memoria", "/api/agentes/rotinas"] };
 
-const cliente = () => new Anthropic({ apiKey: Netlify.env.get("ANTHROPIC_API_KEY") });
+const cliente = () => clienteIA();
 
 export default async (req) => {
   const url = new URL(req.url);
   const rota = url.pathname.replace(/^\/api\/agentes\//, "");
   const st = store();
   if (!(await senhaConfere(st, req.headers.get("x-sync-key") || ""))) return json({ error: "Senha de acesso inválida." }, 401);
-  const temIA = !!Netlify.env.get("ANTHROPIC_API_KEY");
+  const temIA = iaConfigurada();
 
   if (rota === "status" && req.method === "GET") {
     const stT = storeTarefas();
@@ -35,7 +35,7 @@ export default async (req) => {
   }
 
   if (rota === "comando" && req.method === "POST") {
-    if (!temIA) return json({ error: "ANTHROPIC_API_KEY não configurada no servidor." }, 503);
+    if (!temIA) return json({ error: ERRO_SEM_CHAVE }, 503);
     let body; try { body = await req.json(); } catch (e) { return json({ error: "JSON inválido." }, 400); }
     const comando = String(body && body.comando || "").trim();
     if (!comando) return json({ error: "Informe o comando." }, 400);
@@ -78,7 +78,7 @@ export default async (req) => {
     let body; try { body = await req.json(); } catch (e) { return json({ error: "JSON inválido." }, 400); }
     if (body && body.config) return json({ config: await gravarConfigRotinas({ diaria: !!body.config.diaria, semanal: !!body.config.semanal, mensal: !!body.config.mensal }) });
     if (body && body.executar) {
-      if (!temIA) return json({ error: "ANTHROPIC_API_KEY não configurada." }, 503);
+      if (!temIA) return json({ error: ERRO_SEM_CHAVE }, 503);
       const enc = new TextEncoder();
       const stream = new ReadableStream({ async start(ctrl) { const send = (ev) => { try { ctrl.enqueue(enc.encode("data: " + JSON.stringify(ev) + "\n\n")); } catch (e) { /* ignore */ } }; try { const r = await executarRotina(body.executar, { cliente: cliente(), forcar: true, onEvento: send }); send({ tipo: "fim", tarefa: r.pulada ? r : { task_id: r.task_id, status: r.status, result: r.result } }); } catch (e) { send({ tipo: "erro", msg: String(e.message || e) }); } finally { try { ctrl.close(); } catch (e) { /* ignore */ } } } });
       return new Response(stream, { headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store" } });

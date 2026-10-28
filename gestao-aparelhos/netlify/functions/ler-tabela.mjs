@@ -1,6 +1,7 @@
 // Lê prints OU texto livre da tabela do leilão com o Claude e devolve a tabela em texto (TSV) para o app.
 // POST /api/ler-tabela  body { images: [{ media_type, data }] } (base64, até 4 imagens)  ou  { texto: "..." }
 import Anthropic from "@anthropic-ai/sdk";
+import { clienteIA, temIA, ERRO_SEM_CHAVE } from "../lib/ia.mjs";
 import { json, store, senhaConfere } from "../lib/auth.mjs";
 
 export const config = { path: "/api/ler-tabela" };
@@ -20,8 +21,7 @@ export default async (req) => {
   if (req.method !== "POST") return json({ error: "Método não permitido." }, 405);
   const st = store();
   if (!(await senhaConfere(st, req.headers.get("x-sync-key") || ""))) return json({ error: "Senha de acesso inválida." }, 401);
-  const apiKey = Netlify.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return json({ error: "Leitura de imagem não configurada: falta a chave ANTHROPIC_API_KEY no servidor." }, 503);
+  if (!temIA()) return json({ error: ERRO_SEM_CHAVE }, 503);
 
   let body;
   try { body = await req.json(); } catch (e) { return json({ error: "JSON inválido." }, 400); }
@@ -33,7 +33,7 @@ export default async (req) => {
     if (im.data.length > 5_000_000) return json({ error: "Imagem grande demais. Envie um print menor." }, 413);
   }
 
-  const client = new Anthropic({ apiKey });
+  const client = clienteIA();
   const content = images.map((im) => ({ type: "image", source: { type: "base64", media_type: im.media_type, data: im.data } }));
   if (texto) content.push({ type: "text", text: "TEXTO COLADO PELO USUÁRIO:\n" + texto });
   content.push({ type: "text", text: images.length ? "Transcreva a tabela destas " + images.length + " imagem(ns) em TSV, conforme as regras." : "Converta o texto colado em TSV, conforme as regras. Se o texto trouxer o mesmo modelo com várias cores ou vários lances, gere uma linha por oferta. Capacidade sem unidade (ex: 128) é GB." });
