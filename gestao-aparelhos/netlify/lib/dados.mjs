@@ -57,7 +57,7 @@ export function stockList(state) {
     const k = calcRow(r, c.settings || state.settings || DEFAULT_SETTINGS, entregaUnit(c));
     const sold = soldQty(state, c.id, r.id); const lost = lostQty(state, c.id, r.id);
     out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data, modelo: r.modelo,
-      custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
+      custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost, venda: numOr(r.venda, 0) > 0 ? numOr(r.venda, 0) : null });
   }));
   return out;
 }
@@ -109,10 +109,12 @@ export function estoqueAgrupado(state) {
     if (!groups.has(k)) groups.set(k, { modelo: String(s.modelo || "").trim(), qty: 0, custoBRL: 0, custoUSD: 0, lotes: [] });
     const g = groups.get(k);
     g.qty += s.avail; g.custoBRL += s.avail * s.custoBRL; g.custoUSD += s.avail * s.custoUSD;
+    const vr = numOr(s.venda, 0); if (vr > 0) { g.vendaDef = (g.vendaDef || 0) + vr * s.avail; g.vendaDefQty = (g.vendaDefQty || 0) + s.avail; }
     g.lotes.push({ compra: s.compraNome, data: s.compraData, disponivel: s.avail, vendidos: s.sold, perdidos: s.lost, custoBRL: round2(s.custoBRL), custoUSD: round2(s.custoUSD) });
   });
   return [...groups.values()].map((g) => {
-    const venda = precoTabela(state, g.modelo);
+    // venda definida na compra (quando todas as unidades têm) tem prioridade sobre a lista
+    const venda = g.vendaDefQty && g.vendaDefQty === g.qty ? round2(g.vendaDef / g.qty) : precoTabela(state, g.modelo);
     const custoMedio = g.qty ? g.custoBRL / g.qty : 0;
     return { modelo: g.modelo, qty: g.qty, custoMedio: round2(custoMedio), custoTotal: round2(g.custoBRL), vendaLista: venda,
       lucroUnit: venda !== null ? round2(venda - custoMedio) : null, lucroPotencial: venda !== null ? round2((venda - custoMedio) * g.qty) : null,

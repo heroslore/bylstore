@@ -864,7 +864,7 @@
                 <th class="num">Frete PY→SP</th>
                 <th class="num">Custo un. US$</th>
                 <th class="num">Custo un. R$</th>
-                <th class="num">Venda (lista)</th>
+                <th class="num" title="Preço de venda por aparelho. Vem da lista de preços; você pode alterar.">Venda un. R$</th>
                 <th class="num">Margem</th>
                 <th></th>
               </tr>
@@ -1055,7 +1055,8 @@
       </div>
 
       <div class="card">
-        <h2>Nova venda</h2>
+        <h2 id="vendaFormTitle">Nova venda</h2>
+        <div class="badge" id="vendaEditBadge" hidden style="margin:-4px 0 10px">Editando venda salva. Os aparelhos dela voltam a contar como disponíveis até você salvar.</div>
         <div class="grid two">
           <div class="field">
             <label for="vendaCliente">Cliente</label>
@@ -1104,6 +1105,7 @@
         <p class="hint">O preço de venda vem da <b>Lista de preços de venda</b> (aba Calculadora) quando o modelo bate, e pode ser alterado à vontade.</p>
         <div class="actions">
           <button class="btn primary" id="btnRegistrarVenda" type="button">Registrar venda</button>
+          <button class="btn" id="btnCancelarEdicaoVenda" type="button" hidden>Cancelar edição</button>
           <button class="btn amber" id="btnGerarOrcamento" type="button">Gerar orçamento</button>
           <span class="badge" id="vendaDeOrcamento" hidden></span>
           <span class="spacer"></span>
@@ -1456,9 +1458,11 @@
   const DEFAULT_SETTINGS = { taxaFixa: 17, notaPct: 70, frete1: 7.5, frete2: 8, cotacao: 5.40, empresa: "Heros Cell", responsavel: "Ygor Augusto dos Santos Oliveira", contato: "", garantia: GARANTIA_PADRAO };
   const SNAP_KEYS = ["taxaFixa", "notaPct", "frete1", "frete2", "cotacao"];
 
-  const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1 });
+  const newRow = () => ({ id: uid(), modelo: "", preco: 0, notaPct: null, qty: 1, venda: null });
+  // Preço de venda de uma linha de compra: o informado na linha, senão o da lista de preços.
+  const precoVendaRow = (r) => numOr(r && r.venda, 0) > 0 ? numOr(r.venda, 0) : precoTabela(r ? r.modelo : "");
   const newDraft = () => ({ editingId: null, nome: "", data: todayISO(), rows: [newRow()], transito: true, custoEntrega: 0 });
-  const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [], orcamentoId: null });
+  const newVendaDraft = () => ({ data: todayISO(), cliente: "", itens: [], orcamentoId: null, editingId: null });
   const newFiltro = () => ({ periodo: "mes", de: "", ate: "", clienteId: "" });
   const newCalc = () => ({ margem: 20, base: "venda", rows: [] });
   const newCalcRow = () => ({ id: uid(), precoId: null, modelo: "", venda: null, lance: null });
@@ -1601,9 +1605,10 @@
   const totaisCompra = (c) => calcTotals(c.rows, c.settings, entregaUnit(c));
   const pickSnap = (s) => { const o = {}; SNAP_KEYS.forEach((k) => { o[k] = s[k]; }); return o; };
 
+  // Enquanto uma venda está sendo editada, os aparelhos dela contam como disponíveis (para poder trocar quantidade/aparelho).
   function soldQty(compraId, rowId) {
-    let n = 0;
-    state.vendas.forEach((v) => v.itens.forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }));
+    let n = 0; const editando = state.vendaDraft && state.vendaDraft.editingId;
+    state.vendas.forEach((v) => { if (v.id === editando) return; v.itens.forEach((i) => { if (i.compraId === compraId && i.rowId === rowId) n += numOr(i.qty, 0); }); });
     return n;
   }
   function lostQty(compraId, rowId) {
@@ -1620,7 +1625,7 @@
       const k = calcRow(r, c.settings, entregaUnit(c));
       const sold = soldQty(c.id, r.id); const lost = lostQty(c.id, r.id);
       out.push({ key: c.id + "|" + r.id, compraId: c.id, rowId: r.id, compraNome: c.nome, compraData: c.data,
-        modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost });
+        modelo: r.modelo, custoUSD: k.custoUSD, custoBRL: k.custoBRL, qty: k.qty, sold, lost, avail: k.qty - sold - lost, venda: numOr(r.venda, 0) > 0 ? numOr(r.venda, 0) : null });
     }));
     return out;
   }
@@ -1725,8 +1730,8 @@
         <td class="num computed">${fmtUSD(c.frete2)}</td>
         <td class="num computed strong">${fmtUSD(c.custoUSD)}</td>
         <td class="num computed amber">${fmtBRL(c.custoBRL)}</td>
-        <td class="num computed">${vendaListaCell(row.modelo)}</td>
-        <td class="num computed ${margemListaClass(row.modelo, c.custoBRL)}">${margemListaCell(row.modelo, c.custoBRL)}</td>
+        <td class="num"><input type="number" step="1" min="0" data-idx="${idx}" data-field="venda" value="${numOr(row.venda, 0) > 0 ? row.venda : ""}" placeholder="${(() => { const v = precoTabela(row.modelo); return v !== null ? Math.round(v) : "lista"; })()}" title="${vendaListaTitle(row.modelo)}"></td>
+        <td class="num computed ${margemRowClass(row, c.custoBRL)}">${margemRowCell(row, c.custoBRL)}</td>
         <td><button class="icon-btn" type="button" data-remove="${idx}" aria-label="Remover aparelho" title="Remover">✕</button></td>`;
       tbody.appendChild(tr);
     });
@@ -1754,9 +1759,11 @@
     if (field === "preco") row.preco = val === "" ? 0 : Number(val);
     else if (field === "qty") row.qty = val === "" ? 1 : Number(val);
     else if (field === "notaPct") row.notaPct = val === "" ? null : Number(val);
+    else if (field === "venda") row.venda = val === "" ? null : Number(val);
     else row.modelo = val;
     save();
     if (field === "qty" && draftEntregaUnit() > 0) { renderRows(); return; }
+    if (field === "modelo") { const vi = $("rows").children[idx].querySelector('input[data-field="venda"]'); if (vi) { const v = precoTabela(row.modelo); vi.placeholder = v !== null ? Math.round(v) : "lista"; vi.title = vendaListaTitle(row.modelo); } }
     const c = calcRow(row, state.settings, draftEntregaUnit());
     const cells = $("rows").children[idx].querySelectorAll("td.computed");
     cells[0].textContent = fmtUSD(c.valorNota);
@@ -1764,14 +1771,13 @@
     cells[2].textContent = fmtUSD(c.frete2);
     cells[3].textContent = fmtUSD(c.custoUSD);
     cells[4].textContent = fmtBRL(c.custoBRL);
-    cells[5].innerHTML = vendaListaCell(row.modelo);
-    cells[6].textContent = margemListaCell(row.modelo, c.custoBRL);
-    cells[6].className = "num computed " + margemListaClass(row.modelo, c.custoBRL);
+    cells[5].textContent = margemRowCell(row, c.custoBRL);
+    cells[5].className = "num computed " + margemRowClass(row, c.custoBRL);
     renderDraftTotals();
   }
-  function vendaListaCell(modelo) { const v = precoTabela(modelo); return v !== null ? fmtBRL(v) : '<span class="muted" title="Cadastre o modelo na Lista de preços da Calculadora">sem preço</span>'; }
-  function margemListaCell(modelo, custoBRL) { const v = precoTabela(modelo); return v !== null && v > 0 ? fmtPct((v - custoBRL) / v * 100) : "—"; }
-  function margemListaClass(modelo, custoBRL) { const v = precoTabela(modelo); if (v === null || !(v > 0)) return ""; return (v - custoBRL) / v * 100 >= numOr(state.calc.margem, 0) ? "pos" : "neg"; }
+  function vendaListaTitle(modelo) { const v = precoTabela(modelo); return v !== null ? "Lista: " + fmtBRL(v) + ". Deixe em branco para usar a lista." : "Modelo sem preço na lista. Informe o valor de venda ou cadastre o modelo em Cadastros."; }
+  function margemRowCell(row, custoBRL) { const v = precoVendaRow(row); return v !== null && v > 0 ? fmtPct((v - custoBRL) / v * 100) : "—"; }
+  function margemRowClass(row, custoBRL) { const v = precoVendaRow(row); if (v === null || !(v > 0)) return ""; return (v - custoBRL) / v * 100 >= numOr(state.calc.margem, 0) ? "pos" : "neg"; }
   function renderDraftTotals() {
     const t = calcTotals(state.draft.rows, state.settings, draftEntregaUnit());
     $("ftPreco").textContent = fmtUSD(t.preco);
@@ -1781,7 +1787,7 @@
     $("ftF2").textContent = fmtUSD(t.f2);
     $("ftCusto").textContent = fmtUSD(t.usd);
     $("ftCustoBRL").textContent = fmtBRL(t.brl);
-    let vl = 0, vlQty = 0; state.draft.rows.forEach((r) => { const v = precoTabela(r.modelo); if (v !== null) { const q = Math.max(1, Math.round(numOr(r.qty, 1))); vl += v * q; vlQty += q; } });
+    let vl = 0, vlQty = 0; state.draft.rows.forEach((r) => { const v = precoVendaRow(r); if (v !== null && v > 0) { const q = Math.max(1, Math.round(numOr(r.qty, 1))); vl += v * q; vlQty += q; } });
     $("ftVendaLista").textContent = vl ? fmtBRL(vl) : "—";
     $("ftMargemLista").textContent = vl ? fmtPct((vl - t.brl) / vl * 100) + (vlQty < t.qty ? " *" : "") : "—";
     $("ftMargemLista").title = vlQty < t.qty ? "Alguns modelos não têm preço na lista; a margem considera só os que têm." : "";
@@ -1827,7 +1833,7 @@
     if (!rows.length) { toast("Preencha pelo menos um aparelho com modelo e lance."); return; }
     const nome = (d.nome || "").trim() || ("Compra " + fmtDate(d.data));
     const snap = pickSnap(state.settings);
-    const clean = rows.map((r) => ({ id: r.id || uid(), modelo: r.modelo.trim(), preco: numOr(r.preco, 0), notaPct: isBlank(r.notaPct) ? null : numOr(r.notaPct, 0), qty: Math.max(1, Math.round(numOr(r.qty, 1))), ...(numOr(r.custoBRL, 0) > 0 ? { custoBRL: numOr(r.custoBRL, 0) } : {}) }));
+    const clean = rows.map((r) => ({ id: r.id || uid(), modelo: r.modelo.trim(), preco: numOr(r.preco, 0), notaPct: isBlank(r.notaPct) ? null : numOr(r.notaPct, 0), qty: Math.max(1, Math.round(numOr(r.qty, 1))), ...(numOr(r.custoBRL, 0) > 0 ? { custoBRL: numOr(r.custoBRL, 0) } : {}), ...(numOr(r.venda, 0) > 0 ? { venda: numOr(r.venda, 0) } : {}) }));
     if (d.editingId) {
       const c = state.compras.find((x) => x.id === d.editingId);
       if (!c) { toast("Compra não encontrada."); state.draft = newDraft(); save(); renderAll(); return; }
@@ -2380,13 +2386,15 @@
     const groups = new Map();
     stockList().filter((s) => s.avail > 0).forEach((s) => {
       const k = s.modelo.trim().toLowerCase().replace(/\s+/g, " ");
-      if (!groups.has(k)) groups.set(k, { key: k, modelo: s.modelo.trim(), qty: 0, custoBRL: 0, custoUSD: 0, lotes: [] });
+      if (!groups.has(k)) groups.set(k, { key: k, modelo: s.modelo.trim(), qty: 0, custoBRL: 0, custoUSD: 0, lotes: [], vendaDef: 0, vendaDefQty: 0 });
       const g = groups.get(k);
       g.qty += s.avail; g.custoBRL += s.avail * s.custoBRL; g.custoUSD += s.avail * s.custoUSD;
+      if (s.venda !== null) { g.vendaDef += s.venda * s.avail; g.vendaDefQty += s.avail; }
       g.lotes.push(s);
     });
     const out = [...groups.values()].map((g) => {
-      const venda = precoTabela(g.modelo);
+      // preço de venda: média do definido nas compras (quando todas as unidades têm), senão a lista
+      const venda = g.vendaDefQty === g.qty && g.qty > 0 ? g.vendaDef / g.qty : precoTabela(g.modelo);
       const custoMedio = g.qty ? g.custoBRL / g.qty : 0;
       const lucroUn = venda !== null ? venda - custoMedio : null;
       return { ...g, custoMedio, venda, lucroUn, lucro: lucroUn !== null ? lucroUn * g.qty : null, vendaTotal: venda !== null ? venda * g.qty : null };
@@ -2548,6 +2556,11 @@
     $("vendaCliente").hidden = !novo;
     $("vendaCliente").value = novo ? nome : "";
     $("vendaData").value = state.vendaDraft.data || todayISO();
+    const ed = !!state.vendaDraft.editingId;
+    $("vendaFormTitle").textContent = ed ? "Editar venda" : "Nova venda";
+    $("vendaEditBadge").hidden = !ed; $("btnCancelarEdicaoVenda").hidden = !ed;
+    $("btnRegistrarVenda").textContent = ed ? "Salvar alterações" : "Registrar venda";
+    $("btnGerarOrcamento").hidden = ed;
     $("clientesDatalist").innerHTML = state.clientes.map((c) => `<option value="${esc(c.nome)}"></option>`).join("");
   }
   $("vendaCliente").addEventListener("input", (e) => { state.vendaDraft.cliente = e.target.value; save(); });
@@ -2616,7 +2629,7 @@
       const [compraId, rowId] = e.target.value.split("|");
       it.compraId = compraId || null; it.rowId = rowId || null;
       const st = stockList().find((x) => x.key === e.target.value);
-      const tab = st ? precoTabela(st.modelo) : null;
+      const tab = st ? (st.venda !== null ? st.venda : precoTabela(st.modelo)) : null;
       if (tab !== null) it.preco = tab;
       save(); renderVendaRows();
     }));
@@ -2687,8 +2700,9 @@
   });
   $("btnLimparVenda").addEventListener("click", () => {
     state.vendaDraft = newVendaDraft();
-    save(); renderVendaDraftHead(); renderVendaRows();
+    save(); renderAll();
   });
+  $("btnCancelarEdicaoVenda").addEventListener("click", () => { state.vendaDraft = newVendaDraft(); save(); renderAll(); toast("Edição cancelada. A venda ficou como estava."); });
 
   /* ---- orçamentos ---- */
   const ORC_VALIDADE_DIAS = 3;
@@ -2787,15 +2801,20 @@
     }
     let cl = state.clientes.find((c) => c.nome.trim().toLowerCase() === nome.toLowerCase());
     if (!cl) { cl = { id: uid(), nome, telefone: "", obs: "", criadoEm: Date.now() }; state.clientes.push(cl); }
-    state.vendas.unshift({
-      id: uid(), data: d.data || todayISO(), clienteId: cl.id, clienteNome: cl.nome, criadoEm: Date.now(),
-      itens: itens.map((i) => {
-        const s = stock.find((x) => x.key === i.compraId + "|" + i.rowId);
-        const q = Math.max(1, Math.round(numOr(i.qty, 1)));
-        return { compraId: i.compraId, rowId: i.rowId, modelo: s.modelo, custoUSD: s.custoUSD, custoBRL: s.custoBRL,
-          qty: q, preco: numOr(i.preco, 0), obs: (i.obs || "").trim(), imeis: Array.from({ length: q }, (_, k) => String((i.imeis || [])[k] || "").trim()) };
-      }),
+    const novosItens = itens.map((i) => {
+      const s = stock.find((x) => x.key === i.compraId + "|" + i.rowId);
+      const q = Math.max(1, Math.round(numOr(i.qty, 1)));
+      return { compraId: i.compraId, rowId: i.rowId, modelo: s.modelo, custoUSD: s.custoUSD, custoBRL: s.custoBRL,
+        qty: q, preco: numOr(i.preco, 0), obs: (i.obs || "").trim(), imeis: Array.from({ length: q }, (_, k) => String((i.imeis || [])[k] || "").trim()) };
     });
+    if (d.editingId) {
+      const v = state.vendas.find((x) => x.id === d.editingId);
+      if (!v) { toast("Essa venda não existe mais."); state.vendaDraft = newVendaDraft(); save(); renderAll(); return; }
+      v.data = d.data || todayISO(); v.clienteId = cl.id; v.clienteNome = cl.nome; v.itens = novosItens; v.editadoEm = Date.now();
+      state.vendaDraft = newVendaDraft();
+      save(); renderAll(); toast("Venda atualizada."); return;
+    }
+    state.vendas.unshift({ id: uid(), data: d.data || todayISO(), clienteId: cl.id, clienteNome: cl.nome, criadoEm: Date.now(), itens: novosItens });
     const orcId = d.orcamentoId;
     state.vendaDraft = newVendaDraft();
     if (orcId) { const o = (state.orcamentos || []).find((x) => x.id === orcId); if (o) { o.status = "fechado"; o.vendaId = state.vendas[0].id; } }
@@ -2941,6 +2960,7 @@
           </div>
           <div class="actions">
             <button class="btn small amber" type="button" data-doc="${v.id}">Documento para o cliente</button>
+            <button class="btn small" type="button" data-editvenda="${v.id}">Editar</button>
             <span class="spacer"></span>
             <button class="btn small ghost danger" type="button" data-del="${v.id}">Excluir</button>
           </div>
@@ -2955,6 +2975,14 @@
     list.querySelectorAll("[data-doc]").forEach((b) => b.addEventListener("click", () => {
       const v = state.vendas.find((x) => x.id === b.dataset.doc);
       if (v) printVenda(v);
+    }));
+    list.querySelectorAll("[data-editvenda]").forEach((b) => b.addEventListener("click", () => {
+      const v = state.vendas.find((x) => x.id === b.dataset.editvenda); if (!v) return;
+      if (state.vendaDraft.itens.length && !state.vendaDraft.editingId && !confirm("Há uma venda em preenchimento. Descartar e editar esta?")) return;
+      state.vendaDraft = { data: v.data, cliente: v.clienteNome, orcamentoId: null, editingId: v.id,
+        itens: v.itens.map((i) => ({ compraId: i.compraId, rowId: i.rowId, qty: i.qty, preco: i.preco, obs: i.obs || "", imeis: [...(i.imeis || [])] })) };
+      save(); renderAll(); showTab("vendas");
+      $("vendaFormTitle").scrollIntoView({ behavior: "smooth", block: "start" });
     }));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
       const v = state.vendas.find((x) => x.id === b.dataset.del);
