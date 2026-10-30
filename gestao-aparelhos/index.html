@@ -982,7 +982,7 @@
             </tfoot>
           </table>
         </div>
-        <p class="hint">Clique na seta para ver os lotes de cada modelo (compra, data e custo). <b>Venda (lista)</b> vem da Lista de preços da Calculadora; o lucro potencial é o que sobra se tudo vender por esse preço.</p>
+        <p class="hint">Clique na seta para ver os lotes de cada modelo (compra, data e custo). <b>Venda (lista)</b> vem da Lista de preços e pode ser alterada aqui mesmo: digite o valor novo e saia do campo. O lucro potencial é o que sobra se tudo vender por esse preço.</p>
       </div>
 
       <div class="card">
@@ -2439,7 +2439,7 @@
         <td class="num">${g.qty}</td>
         <td class="num computed strong">${fmtBRL(g.custoMedio)}</td>
         <td class="num computed amber">${fmtBRL(g.custoBRL)}</td>
-        <td class="num">${g.venda !== null ? fmtBRL(g.venda) : "<span class=\"muted\">sem preço</span>"}</td>
+        <td class="num"><input type="number" step="1" min="0" class="venda-inline" data-venda-modelo="${esc(g.modelo)}" value="${g.venda !== null ? Math.round(g.venda * 100) / 100 : ""}" placeholder="sem preço" title="Preço de venda deste modelo. Ao alterar, atualiza a lista de preços e os lotes em estoque." style="width:110px;text-align:right"></td>
         <td class="num ${g.lucroUn === null ? "muted" : g.lucroUn < 0 ? "neg" : "pos"}">${g.lucroUn === null ? "—" : fmtBRL(g.lucroUn)}</td>
         <td class="num ${g.lucro === null ? "muted" : g.lucro < 0 ? "neg" : "pos"}">${g.lucro === null ? "—" : fmtBRL(g.lucro)}</td>
         <td class="num">${fmtPct(mg)}</td>`;
@@ -2464,6 +2464,22 @@
     $("etMargem").textContent = fmtPct(tVenda > 0 ? tLucro / tVenda * 100 : null);
   }
   $("estoqueBusca").addEventListener("input", renderEstoque);
+  // Preço de venda editado direto no Estoque: vale para a lista de preços do modelo e para os lotes em estoque.
+  function definirVendaModelo(modelo, valor) {
+    const v = numOr(valor, 0); if (!(v > 0)) return false;
+    const ent = precoEntrada(modelo);
+    if (ent) ent.preco = v; else state.precos.push({ id: uid(), modelo: modelo.trim(), preco: v });
+    const k = modelo.trim().toLowerCase().replace(/\s+/g, " ");
+    state.compras.forEach((c) => c.rows.forEach((r) => { if (String(r.modelo || "").trim().toLowerCase().replace(/\s+/g, " ") === k && numOr(r.venda, 0) > 0) r.venda = v; }));
+    return true;
+  }
+  $("estoqueRows").addEventListener("change", (e) => {
+    const inp = e.target.closest("input[data-venda-modelo]"); if (!inp) return;
+    const modelo = inp.dataset.vendaModelo;
+    if (!definirVendaModelo(modelo, inp.value)) { toast("Informe um valor maior que zero."); renderEstoque(); return; }
+    save(); renderAll(); toast(`Venda de ${modelo} atualizada para ${fmtBRL(numOr(inp.value, 0))}.`);
+  });
+  $("estoqueRows").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("input[data-venda-modelo]")) e.target.blur(); });
 
   /* ---- entrada direta no estoque ---- */
   $("btnEntrada").addEventListener("click", () => {
